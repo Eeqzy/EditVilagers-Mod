@@ -1,0 +1,11 @@
+accessWidener	v2	named
+
+# Disabled Access Widener entries to fix IllegalAccessError in 1.21.10
+accessible field net/minecraft/village/VillagerData level I
+accessible field net/minecraft/village/VillagerData profession Lnet/minecraft/village/VillagerProfession;
+accessible field net/minecraft/village/VillagerData type Lnet/minecraft/village/VillagerType;
+accessible field net/minecraft/world/World isClient Z
+accessible field net/minecraft/village/TradedItem item Lnet/minecraft/item/Item;
+accessible field net/minecraft/village/TradedItem count I
+accessible method net/minecraft/entity/Entity writeCustomDataToNbt (Lnet/minecraft/nbt/NbtCompound;Lnet/minecraft/registry/RegistryWrapper$WrapperLookup;)V
+accessible method net/minecraft/entity/Entity readCustomDataFromNbt (Lnet/minecraft/nbt/NbtCompound;Lnet/minecraft/registry/RegistryWrapper$WrapperLookup;)V

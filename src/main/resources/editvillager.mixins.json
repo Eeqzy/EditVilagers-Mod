@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "lv.editvillager.mixin",
+  "refmap": "editvillager.refmap.json",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "VillagerEntityLockMixin",
+    "MerchantEntityLockMixin",
+    "LivingEntityLockMixin",
+    "TradeOfferMixin",
+    "WorldAccessor",
+    "VillagerDataAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

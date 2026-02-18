@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "editvillager",
+	"version": "${version}",
+	"name": "EditVillager",
+	"description": "Create a villager through the GUI in just a couple of clicks!",
+	"authors": [
+		"Eeqzy"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/",
+		"sources": "https://modrinth.com/project/editvillagers-mod"
+	},
+	"license": "ARR",
+	"icon": "assets/editvillager/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"lv.editvillager.EditVillagers"
+		],
+		"client": [
+			"lv.editvillager.EditVillagerClient"
+		]
+	},
+	"mixins": [
+		"editvillager.mixins.json"
+	],
+	"accessWidener": "editvillager.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.10",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
