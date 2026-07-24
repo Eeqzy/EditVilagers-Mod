@@ -1,5 +1,26 @@
+<div align="center">
 
-# EditVillagers ![logo](https://img.shields.io/badge/EditVillagers-modrinth-green%253Flogo%253Dmodrinth%3Flogo%3Dmodrinth%26color%3D%252300AF5C?logo=modrinth&color=%2300AF5C&link=https%3A%2F%2Fmodrinth.com%2Fmod%2Feditvillagers-mod) ![logo2](https://img.shields.io/badge/1.21.10-Fabric-green%3Flogo%3Dfabric?logo=fabric&color=orange)
+  <h1>
+    <a href="https://modrinth.com/mod/editvillagers-mod">
+      <img src="https://img.shields.io/badge/MODRINTH-00AF5C?style=for-the-badge&logo=modrinth&logoColor=white" vertical-align="middle" />
+    </a>
+    &nbsp; EditVillagers &nbsp;
+    <a href="https://www.curseforge.com/minecraft/mc-mods/editvillagers">
+      <img src="https://img.shields.io/badge/CURSEFORGE-F16436?style=for-the-badge&logo=curseforge&logoColor=white" vertical-align="middle" />
+    </a>
+  </h1>
+
+  <a href="https://fabricmc.net">
+    <img src="https://img.shields.io/badge/FABRIC-F48241?style=for-the-badge&logo=fabricmc&logoColor=white" /></a><img src="https://img.shields.io/badge/MINECRAFT-333333?style=for-the-badge&logo=minecraft&logoColor=white" /><a href="https://neoforged.net"><img src="https://img.shields.io/badge/NEOFORGE-EB6144?style=for-the-badge&logo=neoforge&logoColor=white" />
+  </a>
+
+  <br>
+
+  <a href="https://www.curseforge.com/minecraft/mc-mods/architectury-api">
+    <img src="https://img.shields.io/badge/Architectury-API-6a4fbb?style=for-the-badge&labelColor=333333" />
+  </a>
+</div>
+
 This is an advanced mod for creating a merchant directly through the GUI menu. It allows you to edit your villager, applying any settings you want, making creating a merchant incredibly convenient and easy!
 
 ![ㅤ](https://cdn.modrinth.com/data/cached_images/797134f1f5172db7480f1fc0f57a17299aeed439_0.webp)
@@ -41,7 +62,11 @@ This is an advanced mod for creating a merchant directly through the GUI menu. I
 - The possibility of complete customization of the villager, you can assign a profession and change the appearance!
 
 # Review:
-**The full video review is here ->**
-(link youtube)
+<p align="center">
+  <a href="https://youtu.be/A0ZA1bFYhzE">
+    <img src="https://img.youtube.com/vi/A0ZA1bFYhzE/0.jpg" alt="Watch Review" width="400" style="border-radius: 10px;" />
+  </a>
+</p>
+
 
 **EditVillagers is the best and only mod for creating and customizing residents in minecraft!**
