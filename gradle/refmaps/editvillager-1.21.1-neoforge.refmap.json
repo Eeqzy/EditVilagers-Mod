@@ -1,0 +1,66 @@
+{
+  "mappings": {
+    "lv/editvillager/mixin/LivingEntityLockMixin": {
+      "getExperienceToDrop": "Lnet/minecraft/world/entity/LivingEntity;getExperienceReward(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;)I",
+      "getXpToDrop": "Lnet/minecraft/world/entity/LivingEntity;getExperienceReward(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;)I",
+      "tick": "Lnet/minecraft/world/entity/LivingEntity;tick()V"
+    },
+    "lv/editvillager/mixin/ServerPlayerLanguageMixin": {
+      "writeCustomDataToNbt": "Lnet/minecraft/server/level/ServerPlayer;addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V",
+      "readCustomDataFromNbt": "Lnet/minecraft/server/level/ServerPlayer;readAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V"
+    },
+    "lv/editvillager/mixin/ServerWorldMixin": {
+      "spawnParticles(Lnet/minecraft/particle/ParticleEffect;DDDIDDDD)I": "Lnet/minecraft/server/level/ServerLevel;sendParticles(Lnet/minecraft/core/particles/ParticleOptions;DDDIDDDD)I"
+    },
+    "lv/editvillager/mixin/EntityTypeSpawnEggMixin": {
+      "spawnFromItemStack": "Lnet/minecraft/world/entity/EntityType;spawn(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/MobSpawnType;ZZ)Lnet/minecraft/world/entity/Entity;"
+    },
+    "lv/editvillager/mixin/VillagerEntityLockMixin": {
+      "canLevelUp": "Lnet/minecraft/world/entity/npc/Villager;shouldIncreaseLevel()Z",
+      "levelUp": "Lnet/minecraft/world/entity/npc/Villager;increaseMerchantCareer()V",
+      "prepareOffersFor": "Lnet/minecraft/world/entity/npc/Villager;updateSpecialPrices(Lnet/minecraft/world/entity/player/Player;)V",
+      "interactMob": "Lnet/minecraft/world/entity/npc/Villager;mobInteract(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;",
+      "writeCustomDataToNbt": "Lnet/minecraft/world/entity/npc/Villager;addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V",
+      "readCustomDataFromNbt": "Lnet/minecraft/world/entity/npc/Villager;readAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V",
+      "setOffers(Lnet/minecraft/village/TradeOfferList;)V": "Lnet/minecraft/world/entity/npc/Villager;setOffers(Lnet/minecraft/world/item/trading/MerchantOffers;)V",
+      "setVillagerData": "Lnet/minecraft/world/entity/npc/Villager;setVillagerData(Lnet/minecraft/world/entity/npc/VillagerData;)V",
+      "tick": "Lnet/minecraft/world/entity/npc/Villager;tick()V"
+    },
+    "lv/editvillager/mixin/WorldMixin": {
+      "sendEntityStatus": "Lnet/minecraft/world/level/Level;broadcastEntityEvent(Lnet/minecraft/world/entity/Entity;B)V"
+    }
+  },
+  "data": {
+    "named:intermediary": {
+      "lv/editvillager/mixin/LivingEntityLockMixin": {
+        "getExperienceToDrop": "Lnet/minecraft/world/entity/LivingEntity;getExperienceReward(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;)I",
+        "getXpToDrop": "Lnet/minecraft/world/entity/LivingEntity;getExperienceReward(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;)I",
+        "tick": "Lnet/minecraft/world/entity/LivingEntity;tick()V"
+      },
+      "lv/editvillager/mixin/ServerPlayerLanguageMixin": {
+        "writeCustomDataToNbt": "Lnet/minecraft/server/level/ServerPlayer;addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V",
+        "readCustomDataFromNbt": "Lnet/minecraft/server/level/ServerPlayer;readAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V"
+      },
+      "lv/editvillager/mixin/ServerWorldMixin": {
+        "spawnParticles(Lnet/minecraft/particle/ParticleEffect;DDDIDDDD)I": "Lnet/minecraft/server/level/ServerLevel;sendParticles(Lnet/minecraft/core/particles/ParticleOptions;DDDIDDDD)I"
+      },
+      "lv/editvillager/mixin/EntityTypeSpawnEggMixin": {
+        "spawnFromItemStack": "Lnet/minecraft/world/entity/EntityType;spawn(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/MobSpawnType;ZZ)Lnet/minecraft/world/entity/Entity;"
+      },
+      "lv/editvillager/mixin/VillagerEntityLockMixin": {
+        "canLevelUp": "Lnet/minecraft/world/entity/npc/Villager;shouldIncreaseLevel()Z",
+        "levelUp": "Lnet/minecraft/world/entity/npc/Villager;increaseMerchantCareer()V",
+        "prepareOffersFor": "Lnet/minecraft/world/entity/npc/Villager;updateSpecialPrices(Lnet/minecraft/world/entity/player/Player;)V",
+        "interactMob": "Lnet/minecraft/world/entity/npc/Villager;mobInteract(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;",
+        "writeCustomDataToNbt": "Lnet/minecraft/world/entity/npc/Villager;addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V",
+        "readCustomDataFromNbt": "Lnet/minecraft/world/entity/npc/Villager;readAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V",
+        "setOffers(Lnet/minecraft/village/TradeOfferList;)V": "Lnet/minecraft/world/entity/npc/Villager;setOffers(Lnet/minecraft/world/item/trading/MerchantOffers;)V",
+        "setVillagerData": "Lnet/minecraft/world/entity/npc/Villager;setVillagerData(Lnet/minecraft/world/entity/npc/VillagerData;)V",
+        "tick": "Lnet/minecraft/world/entity/npc/Villager;tick()V"
+      },
+      "lv/editvillager/mixin/WorldMixin": {
+        "sendEntityStatus": "Lnet/minecraft/world/level/Level;broadcastEntityEvent(Lnet/minecraft/world/entity/Entity;B)V"
+      }
+    }
+  }
+}

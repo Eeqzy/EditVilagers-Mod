@@ -50,11 +50,18 @@ public class TradesScreenHandler extends ScreenHandler {
         this.player = playerInventory.player;
         this.world = null;
 
-        this.viewLevel = villager != null ? ReflectionUtils.getLevel(villager.getVillagerData()) : 1;
-
+        //? if 1.21.1 {
         EvVillagerLock lock = (EvVillagerLock) villager;
         this.vanillaLevelingEnabled = !lock.ev$areTradesLocked();
         this.keepTradesEnabled = lock.ev$shouldKeepTrades();
+        this.viewLevel = villager != null ? (!this.vanillaLevelingEnabled ? 1 : ReflectionUtils.getLevel(villager.getVillagerData())) : 1;
+        //?} else {
+        /*this.viewLevel = villager != null ? ReflectionUtils.getLevel(villager.getVillagerData()) : 1;
+
+        EvVillagerLock lock = (EvVillagerLock) villager;
+        this.vanillaLevelingEnabled = !lock.ev$areTradesLocked();
+        this.keepTradesEnabled = lock.ev$shouldKeepTrades();*/
+        //?}
 
         setupDecor();
         setupButtons();
@@ -104,6 +111,12 @@ public class TradesScreenHandler extends ScreenHandler {
         ItemStack back = new ItemStack(Items.RED_CONCRETE);
         back.set(DataComponentTypes.CUSTOM_NAME, Text.literal(LanguageManager.tr("button.back")));
         buttonInventory.setStack(26, back);
+
+        ItemStack tradeFiles = new ItemStack(Items.WRITABLE_BOOK);
+        tradeFiles.set(DataComponentTypes.CUSTOM_NAME, Text.literal(LanguageManager.tr("trades.button.files")));
+        tradeFiles.set(DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(java.util.List.of(
+                Text.literal(LanguageManager.tr("trades.lore.files")))));
+        buttonInventory.setStack(24, tradeFiles);
     }
 
     private ItemStack createNavStack(net.minecraft.item.Item item, String name) {
@@ -159,7 +172,6 @@ public class TradesScreenHandler extends ScreenHandler {
     }
 
     private void loadBufferFromStorage(int level) {
-        System.out.println("TradesScreenHandler.loadBufferFromStorage: Loading level " + level);
         for (int i = 0; i < offersBuffer.length; i++)
             offersBuffer[i] = null;
 
@@ -167,7 +179,6 @@ public class TradesScreenHandler extends ScreenHandler {
         EvVillagerLock lock = (EvVillagerLock) villager;
 
         source = lock.ev$getCustomLevelTrades(level);
-        System.out.println("  Custom trades for level " + level + ": " + (source != null ? source.size() : "null"));
 
         boolean hasAnyCustom = false;
         if (villager instanceof EvVillagerLock) {
@@ -182,26 +193,23 @@ public class TradesScreenHandler extends ScreenHandler {
         }
 
         if ((source == null || source.isEmpty()) 
-                && level == ReflectionUtils.getLevel(villager.getVillagerData())
+                //? if 1.21.1 {
+                && (!this.vanillaLevelingEnabled || level == ReflectionUtils.getLevel(villager.getVillagerData()))
+                //?} else {
+                /*&& level == ReflectionUtils.getLevel(villager.getVillagerData())*/
+                //?}
                 && !hasAnyCustom) {
             source = villager.getOffers();
-            System.out.println(
-                    "  Fallback to villager.getOffers() (init import): " + (source != null ? source.size() : "null"));
         }
 
         if (source != null) {
             for (int i = 0; i < Math.min(source.size(), 80); i++) {
                 TradeOffer offer = source.get(i);
-                System.out.println(
-                        "  Source offer[" + i + "]: " + offer + ", hasSecond=" + offer.getSecondBuyItem().isPresent());
                 try {
                     TradeOffer copied = offer.copy();
                     offersBuffer[i] = copied;
-                    System.out.println("    -> Copied to buffer[" + i + "]: " + copied + ", hasSecond="
-                            + copied.getSecondBuyItem().isPresent());
                 } catch (Throwable t) {
                     offersBuffer[i] = offer;
-                    System.out.println("    -> Copy failed, using original at buffer[" + i + "]: " + offer);
                 }
             }
         }
@@ -220,27 +228,50 @@ public class TradesScreenHandler extends ScreenHandler {
         }
 
 
+        TradeOfferList liveSnapshot = new TradeOfferList();
+        for (TradeOffer offer : villager.getOffers()) {
+            try {
+                liveSnapshot.add(offer.copy());
+            } catch (Throwable t) {
+                liveSnapshot.add(offer);
+            }
+        }
+
         lock.ev$setCustomLevelTrades(level, offers);
 
-        if (level == ReflectionUtils.getLevel(villager.getVillagerData())) {
+        //? if 1.21.1 {
+        if (!this.vanillaLevelingEnabled || level == ReflectionUtils.getLevel(villager.getVillagerData())) {
+        //?} else {
+        /*if (level == ReflectionUtils.getLevel(villager.getVillagerData())) {*/
+        //?}
 
             if (keepTradesEnabled) {
-                TradeOfferList combined = new TradeOfferList();
-                for (int l = 1; l <= level; l++) {
-                    TradeOfferList tierUpdates = lock.ev$getCustomLevelTrades(l);
-                    for (TradeOffer o : tierUpdates) {
-                        combined.add(o.copy());
-                    }
-
-
-                }
-                lock.ev$forceSetOffers(combined);
-
-
+                lock.ev$rebuildOffersFromMenu(level);
+                lock.ev$mergeOfferMetadataFrom(liveSnapshot);
+                lock.ev$syncCustomLevelTradesFromFlat(villager.getOffers());
             } else {
-                lock.ev$forceSetOffers(offers);
-
-
+                TradeOfferList toApply = new TradeOfferList();
+                for (TradeOffer offer : offers) {
+                    toApply.add(offer);
+                }
+                for (int i = 0; i < toApply.size() && i < liveSnapshot.size(); i++) {
+                    TradeOffer base = toApply.get(i);
+                    TradeOffer meta = liveSnapshot.get(i);
+                    toApply.set(i, new TradeOffer(
+                            base.getFirstBuyItem(),
+                            base.getSecondBuyItem(),
+                            base.getSellItem(),
+                            meta.getUses(),
+                            meta.getMaxUses(),
+                            base.getMerchantExperience(),
+                            base.getPriceMultiplier(),
+                            base.getDemandBonus()));
+                    if (toApply.get(i) instanceof EvTradeOfferExtension ext
+                            && meta instanceof EvTradeOfferExtension metaExt) {
+                        ext.ev$setDailyRestock(metaExt.ev$isDailyRestock());
+                    }
+                }
+                lock.ev$forceSetOffers(toApply);
             }
 
             lock.ev$setTradesLocked(!vanillaLevelingEnabled);
@@ -319,7 +350,6 @@ public class TradesScreenHandler extends ScreenHandler {
     }
 
     private void renderPage() {
-        System.out.println("TradesScreenHandler.renderPage: Rendering page " + currentPage);
         for (int i = 0; i < 27; i++) {
             if (isEditableTradeSlot(i)) {
                 tradeInventory.setStack(i, ItemStack.EMPTY);
@@ -333,21 +363,16 @@ public class TradesScreenHandler extends ScreenHandler {
 
             TradeOffer offer = offersBuffer[start + i];
             if (offer != null) {
-                System.out.println("  Rendering slot " + i + " from buffer[" + (start + i) + "]: " + offer
-                        + ", hasSecond=" + offer.getSecondBuyItem().isPresent());
 
                 ItemStack firstItem = offer.getOriginalFirstBuyItem().copy();
                 tradeInventory.setStack(1 + i, firstItem);
-                System.out.println("    First item (slot " + (1 + i) + "): " + firstItem);
 
                 ItemStack secondItem = offer.getDisplayedSecondBuyItem();
                 if (!secondItem.isEmpty()) {
                     tradeInventory.setStack(10 + i, secondItem.copy());
-                    System.out.println("    Second item (slot " + (10 + i) + "): " + secondItem);
                 }
 
                 tradeInventory.setStack(19 + i, offer.getSellItem().copy());
-                System.out.println("    Sell item (slot " + (19 + i) + "): " + offer.getSellItem());
             }
         }
 
@@ -380,8 +405,6 @@ public class TradesScreenHandler extends ScreenHandler {
 
     private void saveCurrentPageToBuffer() {
         int start = currentPage * 8;
-        System.out.println("TradesScreenHandler.saveCurrentPageToBuffer: Saving page " + currentPage + " (slots "
-                + start + " to " + (start + 7) + ")");
         for (int i = 0; i < 8; i++) {
             int bufIdx = start + i;
             if (bufIdx >= offersBuffer.length)
@@ -391,7 +414,6 @@ public class TradesScreenHandler extends ScreenHandler {
             ItemStack second = tradeInventory.getStack(10 + i);
             ItemStack sell = tradeInventory.getStack(19 + i);
 
-            System.out.println("  Slot " + i + ": first=" + first + ", second=" + second + ", sell=" + sell);
 
             if (!first.isEmpty() && !sell.isEmpty()) {
                 TradeOffer offer = new TradeOffer(
@@ -406,11 +428,8 @@ public class TradesScreenHandler extends ScreenHandler {
                         0.05f,
                         0);
                 offersBuffer[bufIdx] = offer;
-                System.out.println("  -> Created offer at buffer[" + bufIdx + "]: " + offer + ", hasSecond="
-                        + offer.getSecondBuyItem().isPresent());
             } else {
                 offersBuffer[bufIdx] = null;
-                System.out.println("  -> Cleared buffer[" + bufIdx + "]");
             }
         }
     }
@@ -454,6 +473,10 @@ public class TradesScreenHandler extends ScreenHandler {
 
     @Override
     public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity playerEntity) {
+        if (actionType == SlotActionType.QUICK_MOVE) {
+            ReflectionUtils.handleQuickMoveSync(actionType, playerEntity);
+            return;
+        }
         if (slotIndex >= 27 && slotIndex < 54) {
             int idx = slotIndex - 27;
 
@@ -505,6 +528,13 @@ public class TradesScreenHandler extends ScreenHandler {
             if (idx == 5) {
                 vanillaLevelingEnabled = !vanillaLevelingEnabled;
                 EvVillagerLock lock = (EvVillagerLock) villager;
+                if (vanillaLevelingEnabled) {
+                    lock.ev$syncCustomLevelTradesFromFlat(villager.getOffers());
+                    viewLevel = ReflectionUtils.getLevel(villager.getVillagerData());
+                    loadBufferFromStorage(viewLevel);
+                    loadPage(currentPage);
+                    refreshLevelSelectorButton();
+                }
                 lock.ev$setTradesLocked(!vanillaLevelingEnabled);
                 refreshVanillaLevelingButton();
                 return;
@@ -547,6 +577,17 @@ public class TradesScreenHandler extends ScreenHandler {
                 return;
             }
 
+            if (idx == 24) {
+                if (playerEntity instanceof ServerPlayerEntity sp && villager != null) {
+                    saveCurrentPageToBuffer();
+                    commitBufferToStorage(viewLevel);
+                    sp.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+                            (syncId, inv, p) -> new TradeFilesScreenHandler(syncId, inv, villager),
+                            Text.literal(LanguageManager.tr("menu.trade_files.title"))));
+                }
+                return;
+            }
+
             return;
         }
 
@@ -560,43 +601,8 @@ public class TradesScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int slotIndex) {
-        Slot slot = this.slots.get(slotIndex);
-        if (slot == null || !slot.hasStack())
-            return ItemStack.EMPTY;
-
-        ItemStack stack = slot.getStack();
-        ItemStack original = stack.copy();
-
-        final int TRADE_START = 0;
-        final int TRADE_END = 27;
-
-        final int BUTTON_START = 27;
-        final int BUTTON_END = 54;
-
-        final int PLAYER_START = 54;
-        final int PLAYER_END = this.slots.size();
-
-        if (slotIndex >= BUTTON_START && slotIndex < BUTTON_END) {
-            return ItemStack.EMPTY;
-        }
-
-        if (slotIndex >= TRADE_START && slotIndex < TRADE_END) {
-            if (!this.insertItem(stack, PLAYER_START, PLAYER_END, true)) {
-                return ItemStack.EMPTY;
-            }
-        } else {
-            if (!moveToEditableTradeSlots(stack)) {
-                return ItemStack.EMPTY;
-            }
-        }
-
-        if (stack.isEmpty()) {
-            slot.setStack(ItemStack.EMPTY);
-        } else {
-            slot.markDirty();
-        }
-
-        return original;
+        ReflectionUtils.forceSyncScreen(player);
+        return ItemStack.EMPTY;
     }
 
     private boolean moveToEditableTradeSlots(ItemStack stack) {

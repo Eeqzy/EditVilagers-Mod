@@ -30,7 +30,9 @@ public class SettingScreenHandler extends ScreenHandler {
     private static final int SLOT_ROTATE = 13;
     private static final int SLOT_RESET_XP = 14;
     private static final int SLOT_PRICE_CHANGE = 15;
+    private static final int SLOT_EFFECTS = 17;
     private static final int SLOT_XP_DROP = 20;
+    private static final int SLOT_BABY = 21;
     private static final int SLOT_SUM = 26;
     private static final int SLOT_NAV_PROFESSION = 18;
     private static final int SLOT_NAV_TRADES = 27;
@@ -68,6 +70,9 @@ public class SettingScreenHandler extends ScreenHandler {
 
     private boolean appliedXpDropEnabled;
     private boolean pendingXpDropEnabled;
+
+    private boolean appliedBaby;
+    private boolean pendingBaby;
     
     private boolean pendingAlign;
 
@@ -106,12 +111,24 @@ public class SettingScreenHandler extends ScreenHandler {
         this.appliedXpDropEnabled = ((EvVillagerLock) villager).ev$isXpDropEnabled();
         this.pendingXpDropEnabled = this.appliedXpDropEnabled;
 
+        this.appliedBaby = villager.isBaby();
+        this.pendingBaby = this.appliedBaby;
+
         fillMenu();
 
         for (int i = 0; i < SIZE; i++) {
             int x = 8 + (i % 9) * 18;
             int y = 18 + (i / 9) * 18;
             this.addSlot(new LockedSlot(menu, i, x, y));
+        }
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 9; j++) {
+                this.addSlot(new Slot(playerInventory, i * 9 + j + 9, 8 + j * 18, 120 + i * 18));
+            }
+        }
+        for (int i = 0; i < 9; i++) {
+            this.addSlot(new Slot(playerInventory, i, 8 + i * 18, 178));
         }
     }
 
@@ -162,6 +179,10 @@ public class SettingScreenHandler extends ScreenHandler {
         safeSet(SLOT_PRICE_CHANGE, createPriceChangeStack());
 
         safeSet(SLOT_XP_DROP, createXpDropStack());
+
+        safeSet(SLOT_BABY, createBabyStack());
+
+        safeSet(SLOT_EFFECTS, createEffectsStack());
 
         ItemStack sumInit = new ItemStack(Items.NETHERITE_SCRAP);
         sumInit.set(DataComponentTypes.CUSTOM_NAME, Text.literal(LanguageManager.tr("settings.button.sum")));
@@ -426,8 +447,32 @@ public class SettingScreenHandler extends ScreenHandler {
         return stack;
     }
 
+    private ItemStack createBabyStack() {
+        ItemStack stack = new ItemStack(Items.ARMOR_STAND);
+        String status = pendingBaby
+                ? LanguageManager.tr("settings.status.baby")
+                : LanguageManager.tr("settings.status.adult");
+        stack.set(DataComponentTypes.CUSTOM_NAME,
+                Text.literal(LanguageManager.tr("settings.button.baby", status)));
+        stack.set(DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(
+                java.util.List.of(Text.literal(LanguageManager.tr("settings.lore.baby")))));
+        stack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, pendingBaby);
+        return stack;
+    }
+
+    private ItemStack createEffectsStack() {
+        ItemStack stack = new ItemStack(Items.WHITE_DYE);
+        stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(LanguageManager.tr("trades.button.effects")));
+        return stack;
+    }
+
     private void refreshXpDropVisual() {
         safeSet(SLOT_XP_DROP, createXpDropStack());
+        sendContentUpdates();
+    }
+
+    private void refreshBabyVisual() {
+        safeSet(SLOT_BABY, createBabyStack());
         sendContentUpdates();
     }
 
@@ -553,6 +598,12 @@ public class SettingScreenHandler extends ScreenHandler {
             sp.sendMessage(Text.literal(LanguageManager.tr("settings.button.noxp", status)), true);
         }
 
+        if (pendingBaby != appliedBaby) {
+            villager.setBaby(pendingBaby);
+            ReflectionUtils.setAgeLocked(villager, pendingBaby);
+            appliedBaby = pendingBaby;
+        }
+
         if (pendingAlign) {
             double targetX = Math.floor(villager.getX()) + 0.5;
             double targetZ = Math.floor(villager.getZ()) + 0.5;
@@ -626,6 +677,10 @@ public class SettingScreenHandler extends ScreenHandler {
 
     @Override
     public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
+        if (actionType == SlotActionType.QUICK_MOVE) {
+            ReflectionUtils.handleQuickMoveSync(actionType, player);
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < SIZE) {
             if (player instanceof ServerPlayerEntity sp) {
 
@@ -671,6 +726,12 @@ public class SettingScreenHandler extends ScreenHandler {
                 if (slotIndex == SLOT_XP_DROP) {
                     pendingXpDropEnabled = !pendingXpDropEnabled;
                     refreshXpDropVisual();
+                    return;
+                }
+
+                if (slotIndex == SLOT_BABY) {
+                    pendingBaby = !pendingBaby;
+                    refreshBabyVisual();
                     return;
                 }
 
@@ -748,6 +809,13 @@ public class SettingScreenHandler extends ScreenHandler {
                     return;
                 }
 
+                if (slotIndex == SLOT_EFFECTS) {
+                    sp.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+                            (syncId, inv, p) -> new EffectsScreenHandler(syncId, inv, villager),
+                            Text.literal(LanguageManager.tr("menu.effects.title"))));
+                    return;
+                }
+
                 if (slotIndex == SLOT_APPLY) {
                     applyChanges(sp);
                     return;
@@ -768,6 +836,7 @@ public class SettingScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int slot) {
+        ReflectionUtils.forceSyncScreen(player);
         return ItemStack.EMPTY;
     }
 

@@ -12,7 +12,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityLockMixin {
 
+    //? if neoforge {
+    @Inject(method = "getExperienceReward", at = @At("HEAD"), cancellable = true, require = 0)
+    //?} else if 1.21.1 {
+    @Inject(method = "getXpToDrop", at = @At("HEAD"), cancellable = true, require = 0)
+    //?} else {
     @Inject(method = "getExperienceToDrop", at = @At("HEAD"), cancellable = true, require = 0)
+    //?}
     private void ev$noXp_getXpToDrop(net.minecraft.server.world.ServerWorld world, net.minecraft.entity.Entity attacker,
             CallbackInfoReturnable<Integer> cir) {
         if ((Object) this instanceof VillagerEntity villager) {

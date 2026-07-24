@@ -64,6 +64,15 @@ public class ProfessionScreenHandler extends ScreenHandler {
         for (int i = 0; i < SIZE; i++) {
             addSlot(new LockedSlot(menu, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18));
         }
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 9; j++) {
+                this.addSlot(new Slot(inv, i * 9 + j + 9, 8 + j * 18, 120 + i * 18));
+            }
+        }
+        for (int i = 0; i < 9; i++) {
+            this.addSlot(new Slot(inv, i, 8 + i * 18, 178));
+        }
     }
 
     private void fillMenu() {
@@ -111,6 +120,10 @@ public class ProfessionScreenHandler extends ScreenHandler {
 
     @Override
     public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
+        if (actionType == SlotActionType.QUICK_MOVE) {
+            ReflectionUtils.handleQuickMoveSync(actionType, player);
+            return;
+        }
         if (!(player instanceof ServerPlayerEntity sp) || slotIndex < 0 || slotIndex >= SIZE)
             return;
 
@@ -172,6 +185,7 @@ public class ProfessionScreenHandler extends ScreenHandler {
         lock.ev$setProfessionLocked(false);
 
         try {
+            //? if 1.21.10 || 1.21.11 {
             RegistryEntry<VillagerProfession> profEntry = Registries.VILLAGER_PROFESSION.getEntry(id)
                     .orElseThrow(() -> new RuntimeException("Unknown profession: " + id));
 
@@ -179,6 +193,13 @@ public class ProfessionScreenHandler extends ScreenHandler {
                 level = 1;
 
             villager.setVillagerData(old.withProfession(profEntry).withLevel(level));
+            //?} else {
+            /*VillagerProfession profession = Registries.VILLAGER_PROFESSION.get(id);
+            if (profession == null) throw new RuntimeException("Unknown profession: " + id);
+            if (level < 1)
+                level = 1;
+            villager.setVillagerData(old.withProfession(profession).withLevel(level));*/
+            //?}
             lock.ev$setProfessionLocked(true);
 
             if (villager.getExperience() <= 0) {
@@ -212,6 +233,7 @@ public class ProfessionScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int slot) {
+        ReflectionUtils.forceSyncScreen(player);
         return ItemStack.EMPTY;
     }
 

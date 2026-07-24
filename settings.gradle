@@ -1,10 +1,40 @@
 pluginManagement {
-	repositories {
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		mavenCentral()
-		gradlePluginPortal()
-	}
+    repositories {
+        maven { url "https://maven.fabricmc.net/" }
+        maven { url "https://maven.architectury.dev/" }
+        maven { url "https://maven.neoforged.net/releases/" }
+        maven { url "https://maven.kikugie.dev/releases" }
+        maven { url "https://maven.kikugie.dev/snapshots" }
+        gradlePluginPortal()
+    }
 }
+
+plugins {
+    id "org.gradle.toolchains.foojay-resolver-convention" version "0.9.0"
+    id "dev.kikugie.stonecutter" version "0.9.6"
+}
+
+stonecutter {
+    kotlinController = true
+
+    create(rootProject) {
+        def mc = { String mcVersion, String... loaders ->
+            loaders.each { loader ->
+                def node = version("$mcVersion-$loader", mcVersion)
+                if (loader == "fabric") {
+                    node.buildscript = mcVersion.startsWith("26") ? "build.fabric.26.gradle.kts" : "build.fabric.gradle.kts"
+                } else {
+                    node.buildscript = mcVersion.startsWith("26") ? "build.neoforge.26.gradle.kts" : "build.neoforge.gradle.kts"
+                }
+            }
+        }
+        mc("1.21.1", "fabric", "neoforge")
+        mc("1.21.10", "fabric", "neoforge")
+        mc("1.21.11", "fabric", "neoforge")
+        mc("26.1", "fabric", "neoforge")
+        mc("26.2", "fabric")
+        vcsVersion = "1.21.10-fabric"
+    }
+}
+
+rootProject.name = "editvillager"

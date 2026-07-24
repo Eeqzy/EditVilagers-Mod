@@ -223,11 +223,19 @@ public class SumScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int slot) {
+        ReflectionUtils.forceSyncScreen(player);
         return ItemStack.EMPTY;
     }
 
     @Override
     public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
+        int row = slotIndex / 9;
+        int col = slotIndex % 9;
+        boolean isSpecialSlot = (row == 4 && col >= 1 && col <= 8);
+        if (actionType == SlotActionType.QUICK_MOVE && !isSpecialSlot) {
+            ReflectionUtils.handleQuickMoveSync(actionType, player);
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < 54 && player instanceof ServerPlayerEntity sp) {
 
             if (slotIndex == 31) {
@@ -256,9 +264,6 @@ public class SumScreenHandler extends ScreenHandler {
                 }
                 return;
             }
-
-            int row = slotIndex / 9;
-            int col = slotIndex % 9;
 
             if (col >= 1 && col <= 8) {
                 int tradeOffset = col - 1;
@@ -325,6 +330,7 @@ public class SumScreenHandler extends ScreenHandler {
                 }
             }
         }
+        ReflectionUtils.handleQuickMoveSync(actionType, player);
         super.onSlotClick(slotIndex, button, actionType, player);
     }
 
@@ -341,6 +347,7 @@ public class SumScreenHandler extends ScreenHandler {
 
         EvVillagerLock lock = (EvVillagerLock) villager;
         lock.ev$forceSetOffers(offers);
+        lock.ev$syncCustomLevelTradesFromFlat(offers);
 
         player.sendMessage(Text.literal(LanguageManager.tr("sum.msg.saved")), true);
     }

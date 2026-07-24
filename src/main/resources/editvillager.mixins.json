@@ -2,15 +2,17 @@
   "required": true,
   "minVersion": "0.8",
   "package": "lv.editvillager.mixin",
-  "refmap": "editvillager.refmap.json",
+  "__REFMAP__"
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "VillagerEntityLockMixin",
     "MerchantEntityLockMixin",
     "LivingEntityLockMixin",
     "TradeOfferMixin",
-    "WorldAccessor",
-    "VillagerDataAccessor"
+    "WorldMixin",
+    "ServerWorldMixin",
+    "ServerPlayerLanguageMixin",
+    "EntityTypeSpawnEggMixin"
   ],
   "injectors": {
     "defaultRequire": 1

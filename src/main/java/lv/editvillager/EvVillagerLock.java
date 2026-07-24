@@ -37,4 +37,25 @@ public interface EvVillagerLock {
         void ev$setKeepTrades(boolean keep);
 
         boolean ev$shouldKeepTrades();
+
+        void ev$rebuildOffersFromMenu(int upToLevel);
+
+        void ev$syncCustomLevelTradesFromFlat(TradeOfferList flat);
+
+        void ev$mergeOfferMetadataFrom(TradeOfferList metadataSource);
+
+        void ev$setEffectsOnActions(boolean enabled);
+        boolean ev$hasEffectsOnActions();
+        
+        void ev$setActionParticle(String particle);
+        String ev$getActionParticle();
+
+        void ev$setContinuousEffect(boolean enabled);
+        boolean ev$hasContinuousEffect();
+        
+        void ev$setContinuousParticle(String particle);
+
+    int ev$getContinuousParticleCount();
+    void ev$setContinuousParticleCount(int count);
+        String ev$getContinuousParticle();
 }

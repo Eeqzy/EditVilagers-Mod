@@ -1,8 +1,6 @@
 package lv.editvillager;
 
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.AttributeModifiersComponent;
-import net.minecraft.entity.EntityType;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -10,42 +8,46 @@ import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradeOfferList;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.component.type.NbtComponent;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.Optional;
 
 public class EditScreenHandler extends ScreenHandler {
 
     private final VillagerEntity villager;
-    private final SimpleInventory menu = new SimpleInventory(9);
+    private final SimpleInventory menu;
 
     public EditScreenHandler(int syncId, PlayerInventory playerInventory, VillagerEntity villager) {
-        super(ScreenHandlerType.GENERIC_9X1, syncId);
+        super(EditMenuExtensions.getMenuType(), syncId);
         this.villager = villager;
+        this.menu = new SimpleInventory(EditMenuExtensions.getMenuSize());
 
         fillMenu();
+        EditMenuExtensions.applyButtons(menu);
 
+        int rows = 1 + EditMenuExtensions.getExtraRows();
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < 9; col++) {
+                int index = col + row * 9;
+                this.addSlot(new LockedSlot(menu, index, 8 + col * 18, 18 + row * 18));
+            }
+        }
+
+        int invOffset = (rows - 4) * 18;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 9; j++) {
+                this.addSlot(new Slot(playerInventory, i * 9 + j + 9, 8 + j * 18, 103 + i * 18 + invOffset));
+            }
+        }
         for (int i = 0; i < 9; i++) {
-            int x = 8 + i * 18;
-            int y = 18;
-            this.addSlot(new LockedSlot(menu, i, x, y));
+            this.addSlot(new Slot(playerInventory, i, 8 + i * 18, 161 + invOffset));
         }
     }
 
     private void fillMenu() {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < menu.size(); i++) {
             ItemStack glass = new ItemStack(Items.GRAY_STAINED_GLASS_PANE);
             glass.set(DataComponentTypes.CUSTOM_NAME, Text.literal(" "));
             menu.setStack(i, glass);
@@ -75,7 +77,14 @@ public class EditScreenHandler extends ScreenHandler {
                 java.util.List.of(Text.literal(LanguageManager.tr("menu.main.lore.professions")))));
         menu.setStack(5, lectern);
 
+        //? if 1.21.1 {
         ItemStack clone = new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE);
+        //?} else {
+        // Paper + item_model: looks like smithing template without vanilla "Applies to…" lore
+        ItemStack clone = new ItemStack(Items.PAPER);
+        clone.set(DataComponentTypes.ITEM_MODEL,
+                net.minecraft.util.Identifier.ofVanilla("netherite_upgrade_smithing_template"));
+        //?}
         clone.set(DataComponentTypes.CUSTOM_NAME, Text.literal(LanguageManager.tr("menu.main.clone")));
         clone.set(DataComponentTypes.LORE, new net.minecraft.component.type.LoreComponent(
                 java.util.List.of(Text.literal(LanguageManager.tr("menu.main.lore.clone")))));
@@ -84,9 +93,17 @@ public class EditScreenHandler extends ScreenHandler {
 
     @Override
     public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
-        if (slotIndex >= 0 && slotIndex < 9) {
+        LanguageManager.bind(player);
+        if (actionType == SlotActionType.QUICK_MOVE) {
+            ReflectionUtils.handleQuickMoveSync(actionType, player);
+            return;
+        }
+        if (slotIndex >= 0 && slotIndex < menu.size()) {
 
             if (player instanceof ServerPlayerEntity sp) {
+                if (EditMenuExtensions.handleClick(slotIndex, sp, villager)) {
+                    return;
+                }
 
                 if (slotIndex == 1) {
                     sp.openHandledScreen(new SimpleNamedScreenHandlerFactory(
@@ -109,8 +126,9 @@ public class EditScreenHandler extends ScreenHandler {
                             Text.literal(LanguageManager.tr("menu.professions.title"))));
 
                 } else if (slotIndex == 7) {
-                    cloneVillager(sp);
-                    sp.closeHandledScreen();
+                    sp.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+                            (syncId, inv, p) -> new CloneScreenHandler(syncId, inv, villager),
+                            Text.literal(LanguageManager.tr("menu.clone.title"))));
                 }
             }
 
@@ -122,86 +140,13 @@ public class EditScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int slot) {
+        ReflectionUtils.forceSyncScreen(player);
         return ItemStack.EMPTY;
     }
 
     @Override
     public boolean canUse(PlayerEntity player) {
         return true;
-    }
-
-    private void cloneVillager(ServerPlayerEntity player) {
-        try {
-            ServerWorld world = (ServerWorld) player.getEntityWorld();
-
-            VillagerEntity newVillager = new VillagerEntity(EntityType.VILLAGER, world);
-
-            newVillager.setVillagerData(villager.getVillagerData());
-            newVillager.setExperience(villager.getExperience());
-            newVillager.setBaby(villager.isBaby());
-
-            TradeOfferList newOffers = new TradeOfferList();
-            for (TradeOffer offer : villager.getOffers()) {
-                newOffers.add(offer.copy());
-            }
-            if (newVillager instanceof EvVillagerLock lock) {
-                lock.ev$forceSetOffers(newOffers);
-            } else {
-                newVillager.setOffers(newOffers);
-            }
-
-            if (villager instanceof EvVillagerLock oldLock && newVillager instanceof EvVillagerLock newLock) {
-                newLock.ev$setTradesLocked(oldLock.ev$areTradesLocked());
-                newLock.ev$setProfessionLocked(oldLock.ev$isProfessionLocked());
-                newLock.ev$setAlwaysLookAtPlayer(oldLock.ev$shouldAlwaysLookAtPlayer());
-                newLock.ev$setPriceLock(oldLock.ev$isPriceLocked());
-                newLock.ev$setKeepTrades(oldLock.ev$shouldKeepTrades());
-                newLock.ev$setXpDropEnabled(oldLock.ev$isXpDropEnabled());
-                for (int i = 1; i <= 5; i++) {
-                    newLock.ev$setCustomLevelTrades(i, oldLock.ev$getCustomLevelTrades(i));
-                }
-            }
-
-            newVillager.setAiDisabled(villager.isAiDisabled());
-            newVillager.setSilent(villager.isSilent());
-            newVillager.setInvulnerable(villager.isInvulnerable());
-            newVillager.setGlowing(villager.isGlowing());
-            newVillager.setNoGravity(villager.hasNoGravity());
-            newVillager.setPersistent();
-
-            if (villager.hasCustomName()) {
-                newVillager.setCustomName(villager.getCustomName());
-                newVillager.setCustomNameVisible(villager.isCustomNameVisible());
-            }
-
-            newVillager.refreshPositionAndAngles(
-                    player.getX(),
-                    player.getY(),
-                    player.getZ(),
-                    player.getYaw(),
-                    0.0f);
-            newVillager.setHeadYaw(player.getYaw());
-            newVillager.setBodyYaw(player.getYaw());
-
-            world.spawnEntity(newVillager);
-
-            newVillager.setVillagerData(newVillager.getVillagerData());
-
-            player.sendMessage(Text.literal(LanguageManager.tr("msg.cloned")), true);
-        } catch (Exception e) {
-            e.printStackTrace();
-            player.sendMessage(Text.literal(LanguageManager.tr("msg.clone_fail", e.getMessage())), false);
-        }
-    }
-
-    private void fixItemNbt(NbtCompound itemNbt) {
-        if (itemNbt != null && itemNbt.contains("Count")) {
-            net.minecraft.nbt.NbtElement element = itemNbt.get("Count");
-            if (element != null) {
-                itemNbt.remove("Count");
-                itemNbt.put("count", element);
-            }
-        }
     }
 
     private static class LockedSlot extends Slot {

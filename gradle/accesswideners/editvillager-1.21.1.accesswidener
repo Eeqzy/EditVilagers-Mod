@@ -1,0 +1,10 @@
+accessWidener	v2	named
+
+accessible field net/minecraft/village/VillagerData level I
+accessible field net/minecraft/village/VillagerData profession Lnet/minecraft/village/VillagerProfession;
+accessible field net/minecraft/village/VillagerData type Lnet/minecraft/village/VillagerType;
+accessible field net/minecraft/world/World isClient Z
+accessible field net/minecraft/village/TradedItem item Lnet/minecraft/item/Item;
+accessible field net/minecraft/village/TradedItem count I
+accessible method net/minecraft/entity/Entity writeCustomDataToNbt (Lnet/minecraft/nbt/NbtCompound;)V
+accessible method net/minecraft/entity/Entity readCustomDataFromNbt (Lnet/minecraft/nbt/NbtCompound;)V

@@ -5,14 +5,36 @@ import net.minecraft.village.VillagerProfession;
 import net.minecraft.village.VillagerType;
 import net.minecraft.world.World;
 
+import net.minecraft.block.BedBlock;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.util.math.BlockPos;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class ReflectionUtils {
+
+    public static void setAgeLocked(net.minecraft.entity.passive.PassiveEntity entity, boolean locked) {
+        if (entity == null) {
+            return;
+        }
+        try {
+            Method m = net.minecraft.entity.passive.PassiveEntity.class.getDeclaredMethod("setAgeLocked", boolean.class);
+            m.setAccessible(true);
+            m.invoke(entity, locked);
+        } catch (Exception e) {
+            try {
+                Field f = net.minecraft.entity.passive.PassiveEntity.class.getDeclaredField("ageLocked");
+                f.setAccessible(true);
+                f.setBoolean(entity, locked);
+            } catch (Exception ignored) {
+            }
+        }
+    }
 
     private static Field levelField;
     private static Field professionField;
@@ -36,7 +58,6 @@ public class ReflectionUtils {
             try {
                 levelMethod = VillagerData.class.getMethod(name);
                 levelMethod.setAccessible(true);
-                System.out.println("ReflectionUtils: Found VillagerData level method: " + name);
                 break;
             } catch (Exception ignored) {}
         }
@@ -45,7 +66,6 @@ public class ReflectionUtils {
             try {
                 professionMethod = VillagerData.class.getMethod(name);
                 professionMethod.setAccessible(true);
-                System.out.println("ReflectionUtils: Found VillagerData profession method: " + name);
                 break;
             } catch (Exception ignored) {}
         }
@@ -54,7 +74,6 @@ public class ReflectionUtils {
             try {
                 typeMethod = VillagerData.class.getMethod(name);
                 typeMethod.setAccessible(true);
-                System.out.println("ReflectionUtils: Found VillagerData type method: " + name);
                 break;
             } catch (Exception ignored) {}
         }
@@ -68,20 +87,16 @@ public class ReflectionUtils {
                      Class<?> type = f.getType();
                      if (type == int.class && levelField == null) {
                          levelField = f;
-                         System.out.println("ReflectionUtils: Found level field by type (int): " + f.getName());
                      } else if (type == VillagerProfession.class && professionField == null) {
                          professionField = f;
-                         System.out.println("ReflectionUtils: Found profession field by type: " + f.getName());
                      } else if (type == VillagerType.class && typeField == null) {
                          typeField = f;
-                         System.out.println("ReflectionUtils: Found type field by type: " + f.getName());
                      }
                 }
                 if (levelField == null) {
                     try {
                         levelField = VillagerData.class.getDeclaredField("field_18555");
                         levelField.setAccessible(true);
-                        System.out.println("ReflectionUtils: Found level field via name: field_18555");
                     } catch(Exception e) {
                          System.err.println("ReflectionUtils: Failed to find level field via name");
                     }
@@ -95,12 +110,10 @@ public class ReflectionUtils {
         try {
             isClientField = World.class.getDeclaredField("isClient");
             isClientField.setAccessible(true);
-            System.out.println("ReflectionUtils: Found isClient field via 'isClient'");
         } catch (NoSuchFieldException e) {
             try {
                 isClientField = World.class.getDeclaredField("field_9236");
                 isClientField.setAccessible(true);
-                System.out.println("ReflectionUtils: Found isClient field via usage of 'field_9236'");
             } catch (Exception ex) {
                 System.err.println("ReflectionUtils: Failed to find isClient field");
             }
@@ -110,72 +123,90 @@ public class ReflectionUtils {
             try {
                 isClientMethod = World.class.getMethod(name);
                 isClientMethod.setAccessible(true);
-                System.out.println("ReflectionUtils: Found World isClient method: " + name);
                 break;
             } catch (Exception ignored) {}
         }
 
 
         try {
-            Class<?> tradedItemClass = Class.forName("net.minecraft.village.TradedItem");
-            Class<?> registryEntryClass = null;
-            try { registryEntryClass = Class.forName("net.minecraft.registry.entry.RegistryEntry"); } catch(Exception e) {}
-            if (registryEntryClass == null) {
-                try { registryEntryClass = Class.forName("net.minecraft.class_6880"); } catch(Exception e) {}
-            }
-
-            String[] itemMethodNames = {"item", "getItem", "method_58286"};
-            for (String name : itemMethodNames) {
+            Class<?> tradedItemClass = null;
+            for (String cn : new String[] {
+                    "net.minecraft.village.TradedItem",
+                    "net.minecraft.village.ItemCost",
+                    "net.minecraft.class_9306"
+            }) {
                 try {
-                    tradedItemItemMethod = tradedItemClass.getMethod(name);
-                    tradedItemItemMethod.setAccessible(true);
-                    System.out.println("ReflectionUtils: Found TradedItem item method: " + name);
+                    tradedItemClass = Class.forName(cn);
                     break;
-                } catch (Exception ignored) {}
+                } catch (ClassNotFoundException ignored) {
+                }
             }
-            String[] countMethodNames = {"count", "getCount", "method_58284"};
-            for (String name : countMethodNames) {
+            if (tradedItemClass == null) {
+                // 1.21.11+ uses ItemCost; convertTradedItem has other fallbacks
+            } else {
+                Class<?> registryEntryClass = null;
                 try {
-                    tradedItemCountMethod = tradedItemClass.getMethod(name);
-                    tradedItemCountMethod.setAccessible(true);
-                    System.out.println("ReflectionUtils: Found TradedItem count method: " + name);
-                    break;
-                } catch (Exception ignored) {}
-            }
+                    registryEntryClass = Class.forName("net.minecraft.registry.entry.RegistryEntry");
+                } catch (Exception ignored) {
+                }
+                if (registryEntryClass == null) {
+                    try {
+                        registryEntryClass = Class.forName("net.minecraft.class_6880");
+                    } catch (Exception ignored) {
+                    }
+                }
 
-            if (tradedItemItemMethod == null || tradedItemCountMethod == null) {
-                for (Field f : tradedItemClass.getDeclaredFields()) {
-                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                    f.setAccessible(true);
+                String[] itemMethodNames = {"item", "getItem", "method_58286"};
+                for (String name : itemMethodNames) {
+                    try {
+                        tradedItemItemMethod = tradedItemClass.getMethod(name);
+                        tradedItemItemMethod.setAccessible(true);
+                        break;
+                    } catch (Exception ignored) {
+                    }
+                }
+                String[] countMethodNames = {"count", "getCount", "method_58284"};
+                for (String name : countMethodNames) {
+                    try {
+                        tradedItemCountMethod = tradedItemClass.getMethod(name);
+                        tradedItemCountMethod.setAccessible(true);
+                        break;
+                    } catch (Exception ignored) {
+                    }
+                }
 
-                    Class<?> type = f.getType();
-                    String typeName = type.getSimpleName();
-                    String fullName = type.getName();
+                if (tradedItemItemMethod == null || tradedItemCountMethod == null) {
+                    for (Field f : tradedItemClass.getDeclaredFields()) {
+                        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+                            continue;
+                        f.setAccessible(true);
 
-                    boolean isItem = (type == net.minecraft.item.Item.class);
-                    boolean isRegistryEntry = (registryEntryClass != null && registryEntryClass.isAssignableFrom(type)) || 
-                                              typeName.contains("RegistryEntry") || 
-                                              fullName.contains("RegistryEntry") ||
-                                              fullName.contains("class_6880");
-                    boolean isHolder = typeName.contains("Holder") || fullName.contains("Holder");
+                        Class<?> type = f.getType();
+                        String typeName = type.getSimpleName();
+                        String fullName = type.getName();
 
-                    if ((isItem || isRegistryEntry || isHolder) && tradedItemItemField == null) {
-                        tradedItemItemField = f;
-                        System.out.println("ReflectionUtils: Found TradedItem item field: " + f.getName() + " (" + fullName + ")");
-                    } else if (type == int.class && tradedItemCountField == null) {
-                        tradedItemCountField = f;
-                        System.out.println("ReflectionUtils: Found TradedItem count field: " + f.getName());
+                        boolean isItem = (type == net.minecraft.item.Item.class);
+                        boolean isRegistryEntry = (registryEntryClass != null
+                                && registryEntryClass.isAssignableFrom(type))
+                                || typeName.contains("RegistryEntry")
+                                || fullName.contains("RegistryEntry")
+                                || fullName.contains("class_6880");
+                        boolean isHolder = typeName.contains("Holder") || fullName.contains("Holder");
+
+                        if ((isItem || isRegistryEntry || isHolder) && tradedItemItemField == null) {
+                            tradedItemItemField = f;
+                        } else if (type == int.class && tradedItemCountField == null) {
+                            tradedItemCountField = f;
+                        }
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception ignored) {
         }
     }
 
     public static net.minecraft.item.ItemStack convertTradedItem(Object tradedItem) {
         if (tradedItem == null) {
-            System.out.println("ReflectionUtils.convertTradedItem: tradedItem is null");
             return net.minecraft.item.ItemStack.EMPTY;
         }
         try {
@@ -186,46 +217,36 @@ public class ReflectionUtils {
             if (tradedItemItemMethod != null) {
                 try {
                     rawItem = tradedItemItemMethod.invoke(tradedItem);
-                    System.out.println("ReflectionUtils.convertTradedItem: Got rawItem via method: " + rawItem);
                 } catch (Exception e) {
-                    System.out.println("ReflectionUtils.convertTradedItem: Method access failed: " + e.getMessage());
                 }
             }
             if (rawItem == null && tradedItemItemField != null) {
                 try {
                     rawItem = tradedItemItemField.get(tradedItem);
-                    System.out.println("ReflectionUtils.convertTradedItem: Got rawItem via field: " + rawItem);
                 } catch (Exception e) {
-                    System.out.println("ReflectionUtils.convertTradedItem: Field access failed: " + e.getMessage());
                 }
             }
 
             if (rawItem instanceof net.minecraft.item.Item i) {
                 item = i;
-                System.out.println("ReflectionUtils.convertTradedItem: Direct Item: " + item);
             } else if (rawItem != null) {
                 Object unwrapped = getEntryValue(rawItem);
                 if (unwrapped instanceof net.minecraft.item.Item i) {
                     item = i;
-                    System.out.println("ReflectionUtils.convertTradedItem: Unwrapped Item: " + item);
                 } else {
-                    System.out.println("ReflectionUtils.convertTradedItem: Failed to unwrap, got: " + unwrapped);
                 }
             }
 
             if (tradedItemCountField != null) {
                 count = tradedItemCountField.getInt(tradedItem);
-                System.out.println("ReflectionUtils.convertTradedItem: Count via field: " + count);
             } else if (tradedItemCountMethod != null) {
                 Object c = tradedItemCountMethod.invoke(tradedItem);
                 if (c instanceof Integer i) {
                     count = i;
-                    System.out.println("ReflectionUtils.convertTradedItem: Count via method: " + count);
                 }
             }
 
             net.minecraft.item.ItemStack result = new net.minecraft.item.ItemStack(item, count);
-            System.out.println("ReflectionUtils.convertTradedItem: Final result: " + result);
             return result;
         } catch (Exception e) {
             System.err.println("ReflectionUtils.convertTradedItem: Exception occurred");
@@ -236,12 +257,70 @@ public class ReflectionUtils {
 
     private static Method cachedSaveMethod = null;
 
+    /** Save entity NBT without id (1.21.10+ WriteView / legacy writeNbt). */
+    public static NbtCompound saveEntityWithoutId(Entity entity) {
+        NbtCompound nbt = new NbtCompound();
+        if (entity == null) {
+            return nbt;
+        }
+        RegistryWrapper.WrapperLookup lookup = entity.getRegistryManager();
+        //? if 1.21.10 || 1.21.11 {
+        try {
+            net.minecraft.storage.NbtWriteView view = net.minecraft.storage.NbtWriteView.create(
+                    net.minecraft.util.ErrorReporter.EMPTY, lookup);
+            boolean saved = false;
+            try {
+                Method saveSelf = Entity.class.getMethod("saveSelfData", net.minecraft.storage.WriteView.class);
+                Object ok = saveSelf.invoke(entity, view);
+                saved = !(ok instanceof Boolean b) || b;
+            } catch (ReflectiveOperationException ignored) {
+            }
+            if (!saved) {
+                try {
+                    Method writeData = Entity.class.getMethod("writeData", net.minecraft.storage.WriteView.class);
+                    writeData.invoke(entity, view);
+                    saved = true;
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
+            if (saved) {
+                nbt = view.getNbt().copy();
+            }
+        } catch (Throwable ignored) {
+        }
+        //?}
+
+        if (nbt.isEmpty()) {
+            saveAllDataLegacy(entity, nbt, lookup);
+        }
+
+        for (String key : new String[] {
+                "UUID", "UUIDLeast", "UUIDMost", "Pos", "Motion", "Rotation",
+                "dimension", "WorldUUIDLeast", "WorldUUIDMost", "id"
+        }) {
+            nbt.remove(key);
+        }
+        return nbt;
+    }
+
     public static void saveAllData(Entity entity, NbtCompound nbt, RegistryWrapper.WrapperLookup lookup) {
         if (entity == null || nbt == null)
             return;
 
-        String[] prioritized = { "writeNbt", "writeCustomDataToNbt", "saveNbt", "saveCustomDataToNbt", "method_5652",
-                "method_5651" };
+        NbtCompound saved = saveEntityWithoutId(entity);
+        for (String key : saved.getKeys()) {
+            net.minecraft.nbt.NbtElement el = saved.get(key);
+            if (el != null) {
+                nbt.put(key, el.copy());
+            }
+        }
+    }
+
+    private static void saveAllDataLegacy(Entity entity, NbtCompound nbt, RegistryWrapper.WrapperLookup lookup) {
+        String[] prioritized = {
+                "writeNbt", "writeCustomDataToNbt", "saveWithoutId", "addAdditionalSaveData",
+                "saveNbt", "saveCustomDataToNbt", "method_5652", "method_5651"
+        };
 
         Class<?> current = entity.getClass();
         while (current != null && current != Object.class) {
@@ -253,7 +332,6 @@ public class ReflectionUtils {
                         m.setAccessible(true);
                         m.invoke(entity, nbt, lookup);
                         if (!nbt.isEmpty()) {
-                            System.out.println("ReflectionUtils: Saved via " + name + " in " + current.getSimpleName());
                             return;
                         }
                     } catch (NoSuchMethodException ignored) {
@@ -264,7 +342,6 @@ public class ReflectionUtils {
                         m.setAccessible(true);
                         m.invoke(entity, nbt);
                         if (!nbt.isEmpty()) {
-                            System.out.println("ReflectionUtils: Saved via " + name + " in " + current.getSimpleName());
                             return;
                         }
                     } catch (NoSuchMethodException ignored) {
@@ -289,8 +366,6 @@ public class ReflectionUtils {
                         }
 
                         if (!nbt.isEmpty()) {
-                            System.out.println("ReflectionUtils: Saved via search: " + m.getName() + " in "
-                                    + current.getSimpleName());
                             return;
                         }
                     } catch (Exception ignored) {
@@ -308,8 +383,21 @@ public class ReflectionUtils {
         if (entity == null || nbt == null)
             return;
 
-        String[] prioritized = { "readNbt", "readCustomDataFromNbt", "loadNbt", "loadCustomDataFromNbt", "method_5650",
-                "method_5648" };
+        //? if 1.21.10 || 1.21.11 {
+        try {
+            net.minecraft.storage.ReadView view = net.minecraft.storage.NbtReadView.create(
+                    net.minecraft.util.ErrorReporter.EMPTY, lookup, nbt);
+            Method readData = Entity.class.getMethod("readData", net.minecraft.storage.ReadView.class);
+            readData.invoke(entity, view);
+            return;
+        } catch (Throwable ignored) {
+        }
+        //?}
+
+        String[] prioritized = {
+                "readNbt", "readCustomDataFromNbt", "load", "readAdditionalSaveData",
+                "loadNbt", "loadCustomDataFromNbt", "method_5650", "method_5648"
+        };
 
         Class<?> current = entity.getClass();
         while (current != null && current != Object.class) {
@@ -320,7 +408,6 @@ public class ReflectionUtils {
                                 net.minecraft.registry.RegistryWrapper.WrapperLookup.class);
                         m.setAccessible(true);
                         m.invoke(entity, nbt, lookup);
-                        System.out.println("ReflectionUtils: Loaded via " + name + " in " + current.getSimpleName());
                         return;
                     } catch (NoSuchMethodException ignored) {
                     }
@@ -329,7 +416,6 @@ public class ReflectionUtils {
                         Method m = current.getDeclaredMethod(name, NbtCompound.class);
                         m.setAccessible(true);
                         m.invoke(entity, nbt);
-                        System.out.println("ReflectionUtils: Loaded via " + name + " in " + current.getSimpleName());
                         return;
                     } catch (NoSuchMethodException ignored) {
                     }
@@ -353,8 +439,6 @@ public class ReflectionUtils {
                             } else if (params.length == 1) {
                                 m.invoke(entity, nbt);
                             }
-                            System.out.println("ReflectionUtils: Loaded via search: " + m.getName() + " in "
-                                    + current.getSimpleName());
                             return;
                         }
                     } catch (Exception ignored) {
@@ -367,10 +451,16 @@ public class ReflectionUtils {
     }
 
     public static int getLevel(VillagerData data) {
+        if (data == null) {
+            return 1;
+        }
         try {
-            if (levelField != null)
+            if (levelMethod != null) {
+                return ((Number) levelMethod.invoke(data)).intValue();
+            }
+            if (levelField != null) {
                 return levelField.getInt(data);
-
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -378,7 +468,13 @@ public class ReflectionUtils {
     }
 
     public static Object getProfession(VillagerData data) {
+        if (data == null) {
+            return net.minecraft.village.VillagerProfession.NONE;
+        }
         try {
+            if (professionMethod != null) {
+                return professionMethod.invoke(data);
+            }
             if (professionField != null) {
                 return professionField.get(data);
             }
@@ -389,7 +485,13 @@ public class ReflectionUtils {
     }
 
     public static Object getType(VillagerData data) {
+        if (data == null) {
+            return net.minecraft.village.VillagerType.PLAINS;
+        }
         try {
+            if (typeMethod != null) {
+                return typeMethod.invoke(data);
+            }
             if (typeField != null) {
                 return typeField.get(data);
             }
@@ -400,19 +502,20 @@ public class ReflectionUtils {
     }
 
     public static boolean isClient(World world) {
+        if (world == null) {
+            return false;
+        }
         try {
-            if (isClientField != null)
+            if (isClientField != null) {
                 return isClientField.getBoolean(world);
-
-            try {
-                Method m = World.class.getMethod("isClient");
-                return (boolean) m.invoke(world);
-            } catch(Exception ex) {}
-            
+            }
+            if (isClientMethod != null) {
+                return (boolean) isClientMethod.invoke(world);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return false;
+        return !(world instanceof net.minecraft.server.world.ServerWorld);
     }
 
     public static Object getEntryValue(Object entry) {
@@ -456,7 +559,6 @@ public class ReflectionUtils {
                 current = current.getSuperclass();
             }
 
-            System.out.println("ReflectionUtils.getEntryValue: No extraction method worked for: " + entry + " (Class: " + entry.getClass().getName() + ")");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -477,7 +579,6 @@ public class ReflectionUtils {
                     booleanCount++;
                     f.setAccessible(true);
                     if (expField == null) expField = f;
-                    System.out.println("ReflectionUtils.setRewardExp: Found boolean field: " + f.getName());
                 }
             }
 
@@ -504,5 +605,122 @@ public class ReflectionUtils {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void handleQuickMoveSync(net.minecraft.screen.slot.SlotActionType actionType, net.minecraft.entity.player.PlayerEntity player) {
+        if (actionType == net.minecraft.screen.slot.SlotActionType.QUICK_MOVE) {
+            forceSyncScreen(player);
+        }
+    }
+
+    public static void forceSyncScreen(net.minecraft.entity.player.PlayerEntity player) {
+        if (player instanceof net.minecraft.server.network.ServerPlayerEntity sp && sp.currentScreenHandler != null) {
+            try {
+                int currentRev = sp.currentScreenHandler.getRevision();
+                sp.currentScreenHandler.sendContentUpdates();
+
+                for (int i = 0; i < sp.currentScreenHandler.slots.size(); i++) {
+                    NetworkCompat.send(sp, new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                            sp.currentScreenHandler.syncId, 
+                            currentRev, 
+                            i, 
+                            sp.currentScreenHandler.slots.get(i).getStack().copy()
+                    ));
+                }
+                NetworkCompat.send(sp, new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                        -1, 
+                        currentRev, 
+                        -1, 
+                        sp.currentScreenHandler.getCursorStack().copy()
+                ));
+
+                int newRev = currentRev + 1;
+                try {
+                    java.lang.reflect.Method m = net.minecraft.screen.ScreenHandler.class.getDeclaredMethod("nextRevision");
+                    m.setAccessible(true);
+                    m.invoke(sp.currentScreenHandler);
+                    newRev = sp.currentScreenHandler.getRevision();
+                } catch (Exception e) {
+                    try {
+                        java.lang.reflect.Field f = net.minecraft.screen.ScreenHandler.class.getDeclaredField("revision");
+                        f.setAccessible(true);
+                        newRev = f.getInt(sp.currentScreenHandler) + 1;
+                        f.setInt(sp.currentScreenHandler, newRev);
+                    } catch (Exception ex) {
+                        try {
+                            java.lang.reflect.Field f = net.minecraft.screen.ScreenHandler.class.getDeclaredField("field_29241");
+                            f.setAccessible(true);
+                            newRev = f.getInt(sp.currentScreenHandler) + 1;
+                            f.setInt(sp.currentScreenHandler, newRev);
+                        } catch (Exception ex2) {
+                            newRev = sp.currentScreenHandler.getRevision() + 1;
+                        }
+                    }
+                }
+
+                net.minecraft.util.collection.DefaultedList<net.minecraft.item.ItemStack> contents = 
+                        net.minecraft.util.collection.DefaultedList.ofSize(sp.currentScreenHandler.slots.size(), net.minecraft.item.ItemStack.EMPTY);
+                for (int i = 0; i < sp.currentScreenHandler.slots.size(); i++) {
+                    contents.set(i, sp.currentScreenHandler.slots.get(i).getStack().copy());
+                }
+
+                NetworkCompat.send(sp, new net.minecraft.network.packet.s2c.play.InventoryS2CPacket(
+                        sp.currentScreenHandler.syncId, 
+                        newRev, 
+                        contents, 
+                        sp.currentScreenHandler.getCursorStack().copy()
+                ));
+
+                for (int i = 0; i < sp.currentScreenHandler.slots.size(); i++) {
+                    NetworkCompat.send(sp, new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                            sp.currentScreenHandler.syncId, 
+                            newRev, 
+                            i, 
+                            sp.currentScreenHandler.slots.get(i).getStack().copy()
+                    ));
+                }
+                
+                NetworkCompat.send(sp, new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(
+                        -1, 
+                        newRev, 
+                        -1, 
+                        sp.currentScreenHandler.getCursorStack().copy()
+                ));
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static boolean isBedNearby(Entity entity) {
+        World world = entity.getEntityWorld();
+        BlockPos feet = entity.getBlockPos();
+        BlockPos center = BlockPos.ofFloored(
+                entity.getX(),
+                entity.getY() + entity.getHeight() / 2.0,
+                entity.getZ());
+
+        BlockPos[] origins = {feet, feet.down(), center};
+        for (BlockPos origin : origins) {
+            if (scanBedCube(world, origin)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean scanBedCube(World world, BlockPos origin) {
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                for (int z = -1; z <= 1; z++) {
+                    BlockState state = world.getBlockState(origin.add(x, y, z));
+                    if (state.isIn(BlockTags.BEDS) || state.getBlock() instanceof BedBlock) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

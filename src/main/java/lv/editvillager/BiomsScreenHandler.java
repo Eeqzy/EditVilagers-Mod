@@ -65,6 +65,15 @@ public class BiomsScreenHandler extends ScreenHandler {
             int y = 18 + (i / 9) * 18;
             this.addSlot(new LockedSlot(menu, i, x, y));
         }
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 9; j++) {
+                this.addSlot(new Slot(playerInventory, i * 9 + j + 9, 8 + j * 18, 84 + i * 18));
+            }
+        }
+        for (int i = 0; i < 9; i++) {
+            this.addSlot(new Slot(playerInventory, i, 8 + i * 18, 142));
+        }
     }
 
     private Identifier resolveToId(Object obj) {
@@ -154,6 +163,10 @@ public class BiomsScreenHandler extends ScreenHandler {
 
     @Override
     public void onSlotClick(int slotIndex, int button, SlotActionType actionType, PlayerEntity player) {
+        if (actionType == SlotActionType.QUICK_MOVE) {
+            ReflectionUtils.handleQuickMoveSync(actionType, player);
+            return;
+        }
         if (slotIndex >= 0 && slotIndex < SIZE) {
             if (player instanceof ServerPlayerEntity sp) {
                 if (slotIndex == SLOT_NAV_MAIN) {
@@ -209,9 +222,15 @@ public class BiomsScreenHandler extends ScreenHandler {
                 if (slotIndex == SLOT_APPLY) {
                     if (!isAuto && pendingTypeId != null) {
                         try {
+                            //? if 1.21.10 || 1.21.11 {
                             RegistryEntry<VillagerType> typeEntry = Registries.VILLAGER_TYPE.getEntry(pendingTypeId)
                                     .orElseThrow(() -> new RuntimeException("Unknown type: " + pendingTypeId));
                             villager.setVillagerData(villager.getVillagerData().withType(typeEntry));
+                            //?} else {
+                            /*VillagerType type = Registries.VILLAGER_TYPE.get(pendingTypeId);
+                            if (type == null) throw new RuntimeException("Unknown type: " + pendingTypeId);
+                            villager.setVillagerData(villager.getVillagerData().withType(type));*/
+                            //?}
                             sp.sendMessage(Text.literal(LanguageManager.tr("biomes.msg.changed")), true);
                         } catch (Exception e) {
                             sp.sendMessage(Text.literal(LanguageManager.tr("biomes.msg.error", e.getMessage())), true);
@@ -246,6 +265,7 @@ public class BiomsScreenHandler extends ScreenHandler {
 
     @Override
     public ItemStack quickMove(PlayerEntity player, int slot) {
+        ReflectionUtils.forceSyncScreen(player);
         return ItemStack.EMPTY;
     }
 

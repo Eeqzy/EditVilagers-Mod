@@ -2,53 +2,55 @@ package lv.editvillager;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import dev.architectury.event.EventResult;
+import dev.architectury.event.events.common.CommandRegistrationEvent;
+import dev.architectury.event.events.common.InteractionEvent;
+import dev.architectury.event.events.common.TickEvent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.village.VillagerProfession;
 import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
-public class EditVillagers implements ModInitializer {
+public class EditVillagers {
 
-	@Override
-	public void onInitialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
+	public static void init() {
+		CommandRegistrationEvent.EVENT.register((dispatcher, registry, selection) -> register(dispatcher));
 
-		UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-			if (world.isClient())
-				return ActionResult.PASS;
+		InteractionEvent.INTERACT_ENTITY.register(EditVillagers::onEntityInteract);
 
-			if (!(entity instanceof VillagerEntity villager))
-				return ActionResult.PASS;
-
-			if (player.isSneaking() && player instanceof ServerPlayerEntity sp && player.isCreative()) {
-				sp.openHandledScreen(
-						new SimpleNamedScreenHandlerFactory(
-								(syncId, inv, p) -> new EditScreenHandler(syncId, inv, villager),
-								Text.literal("EditVillagers by Eeqzy")));
-				return ActionResult.CONSUME;
-			}
-
-			return ActionResult.PASS;
-		});
-
-		VillagerCarryHandler.registerTick();
+		TickEvent.SERVER_POST.register(VillagerCarryHandler::onServerTick);
 	}
 
-	private void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+	private static EventResult onEntityInteract(net.minecraft.entity.player.PlayerEntity player, Entity entity,
+			Hand hand) {
+		if (player.getEntityWorld().isClient())
+			return EventResult.pass();
+
+		if (!(entity instanceof VillagerEntity villager))
+			return EventResult.pass();
+
+		if (player.isSneaking() && player instanceof ServerPlayerEntity sp && player.isCreative()) {
+			LanguageManager.bind(sp);
+			sp.openHandledScreen(
+					new SimpleNamedScreenHandlerFactory(
+							(syncId, inv, p) -> new EditScreenHandler(syncId, inv, villager),
+							Text.literal(LanguageManager.tr("menu.main.title"))));
+			return EventResult.interruptTrue();
+		}
+
+		return EventResult.pass();
+	}
+
+	private static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
 		dispatcher.register(
 				CommandManager.literal("ev")
 						.requires(
@@ -70,10 +72,21 @@ public class EditVillagers implements ModInitializer {
 						.then(CommandManager.literal("name")
 								.then(CommandManager.argument("name", StringArgumentType.greedyString())
 										.executes(ctx -> runName(ctx.getSource(),
-												StringArgumentType.getString(ctx, "name"))))));
+												StringArgumentType.getString(ctx, "name")))))
+						.then(CommandManager.literal("tradefiles")
+								.then(CommandManager.literal("cancel")
+										.executes(ctx -> TradeFilePromptManager.cancel(ctx.getSource())))
+								.then(CommandManager.literal("apply")
+										.then(CommandManager.argument("file", StringArgumentType.greedyString())
+												.executes(ctx -> TradeFilePromptManager.applyFromCommand(
+														ctx.getSource(),
+														StringArgumentType.getString(ctx, "file")))))));
 	}
 
-	private int runHelp(ServerCommandSource source) {
+	private static int runHelp(ServerCommandSource source) {
+		if (source.getEntity() instanceof ServerPlayerEntity player) {
+			LanguageManager.bind(player);
+		}
 		source.sendFeedback(() -> Text.literal(LanguageManager.tr("command.help.title")), false);
 		source.sendFeedback(() -> Text.literal(LanguageManager.tr("command.help.list")), false);
 		source.sendFeedback(() -> Text.literal(LanguageManager.tr("command.help.create")), false);
@@ -85,17 +98,22 @@ public class EditVillagers implements ModInitializer {
 		return 1;
 	}
 
-	private int runLang(ServerCommandSource source, String lang) {
-		if (lang.equals("ru") || lang.equals("en")) {
-			LanguageManager.setLanguage(lang);
+	private static int runLang(ServerCommandSource source, String lang) {
+		if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
+			source.sendError(Text.literal(LanguageManager.tr("command.error.player_only")));
+			return 0;
+		}
+		LanguageManager.bind(player);
+		if (LanguageManager.isSupported(lang)) {
+			LanguageManager.setLanguage(player, lang);
 			source.sendFeedback(() -> Text.literal(LanguageManager.tr("command.success.lang_changed", lang)), false);
 			return 1;
 		}
-		source.sendError(Text.literal("Invalid language. Use: ru, en"));
+		source.sendError(Text.literal(LanguageManager.tr("command.error.invalid_lang")));
 		return 0;
 	}
 
-	private int runName(ServerCommandSource source, String name) {
+	private static int runName(ServerCommandSource source, String name) {
 		if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
 			source.sendError(Text.literal(LanguageManager.tr("command.error.player_only")));
 			return 0;
@@ -115,7 +133,7 @@ public class EditVillagers implements ModInitializer {
 		return 1;
 	}
 
-	private int runCarry(ServerCommandSource source) {
+	private static int runCarry(ServerCommandSource source) {
 		if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
 			source.sendError(Text.literal(LanguageManager.tr("command.error.player_only")));
 			return 0;
@@ -131,7 +149,7 @@ public class EditVillagers implements ModInitializer {
 		return 1;
 	}
 
-	private int create(ServerCommandSource source, String name) {
+	private static int create(ServerCommandSource source, String name) {
 		if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
 			source.sendError(Text.literal("Only players can use this command"));
 			return 0;
@@ -140,34 +158,28 @@ public class EditVillagers implements ModInitializer {
 		ServerWorld world = source.getWorld();
 
 		VillagerEntity newVillager = new VillagerEntity(EntityType.VILLAGER, world);
-		if (newVillager != null)
-			newVillager.initialize(world, world.getLocalDifficulty(newVillager.getBlockPos()), SpawnReason.COMMAND,
-					null);
+		newVillager.initialize(world, world.getLocalDifficulty(newVillager.getBlockPos()), SpawnReason.COMMAND,
+				null);
 
-		if (newVillager != null) {
-			newVillager.refreshPositionAndAngles(player.getX(), player.getY(), player.getZ(), player.getYaw(), 0.0f);
-			newVillager.setHeadYaw(player.getYaw());
-			newVillager.setBodyYaw(player.getYaw());
+		newVillager.refreshPositionAndAngles(player.getX(), player.getY(), player.getZ(), player.getYaw(), 0.0f);
+		newVillager.setHeadYaw(player.getYaw());
+		newVillager.setBodyYaw(player.getYaw());
 
-			newVillager.setCustomName(Text.literal(name.replace('&', '§')));
-			newVillager.setCustomNameVisible(false);
-			newVillager.setAiDisabled(true);
+		newVillager.setCustomName(Text.literal(name.replace('&', '§')));
+		newVillager.setCustomNameVisible(false);
+		newVillager.setAiDisabled(true);
 
-			newVillager.setSilent(false);
-			newVillager.setExperience(1);
+		newVillager.setSilent(false);
+		newVillager.setExperience(1);
 
-			world.spawnEntity(newVillager);
+		world.spawnEntity(newVillager);
 
-			source.sendFeedback(() -> Text.literal(LanguageManager.tr("command.success.villager_created", name)),
-					false);
-			return 1;
-		}
-
-		source.sendError(Text.literal(LanguageManager.tr("command.error.spawn_failed")));
-		return 0;
+		source.sendFeedback(() -> Text.literal(LanguageManager.tr("command.success.villager_created", name)),
+				false);
+		return 1;
 	}
 
-	private int openTrades(ServerCommandSource source) {
+	private static int openTrades(ServerCommandSource source) {
 		if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
 			source.sendError(Text.literal("Only players can use this command"));
 			return 0;
@@ -185,7 +197,7 @@ public class EditVillagers implements ModInitializer {
 		return 1;
 	}
 
-	private int openEdit(ServerCommandSource source) {
+	private static int openEdit(ServerCommandSource source) {
 		if (!(source.getEntity() instanceof ServerPlayerEntity player)) {
 			source.sendError(Text.literal("Only players can use this command"));
 			return 0;
@@ -203,7 +215,7 @@ public class EditVillagers implements ModInitializer {
 		return 1;
 	}
 
-	private VillagerEntity getTargetedVillager(ServerPlayerEntity player, ServerWorld world) {
+	private static VillagerEntity getTargetedVillager(ServerPlayerEntity player, ServerWorld world) {
 		Vec3d start = player.getCameraPosVec(1.0f);
 		Vec3d direction = player.getRotationVec(1.0f);
 

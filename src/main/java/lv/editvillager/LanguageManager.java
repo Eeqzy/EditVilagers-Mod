@@ -1,29 +1,98 @@
 package lv.editvillager;
 
+import net.minecraft.entity.player.PlayerEntity;
+
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class LanguageManager {
 
+    private static final String DEFAULT_LANG = "ru";
     private static final Map<String, Map<String, String>> LANGUAGES = new HashMap<>();
-    private static String currentLang = "ru";
+    private static final Map<UUID, String> PLAYER_LANG = new ConcurrentHashMap<>();
+    private static final ThreadLocal<UUID> ACTIVE_PLAYER = new ThreadLocal<>();
 
     static {
         loadLanguages();
     }
 
+    /** Привязать язык текущего игрока для последующих {@link #tr(String)}. */
+    public static void bind(PlayerEntity player) {
+        if (player != null) {
+            ACTIVE_PLAYER.set(player.getUuid());
+        }
+    }
+
+    public static void unbind() {
+        ACTIVE_PLAYER.remove();
+    }
+
+    public static boolean isSupported(String lang) {
+        return LANGUAGES.containsKey(lang);
+    }
+
+    public static void setLanguage(PlayerEntity player, String lang) {
+        if (player == null || !isSupported(lang)) {
+            return;
+        }
+        PLAYER_LANG.put(player.getUuid(), lang);
+        ACTIVE_PLAYER.set(player.getUuid());
+    }
+
+    public static String getLanguage(PlayerEntity player) {
+        if (player == null) {
+            return DEFAULT_LANG;
+        }
+        return PLAYER_LANG.getOrDefault(player.getUuid(), DEFAULT_LANG);
+    }
+
+    public static String getLanguage(UUID playerId) {
+        if (playerId == null) {
+            return DEFAULT_LANG;
+        }
+        return PLAYER_LANG.getOrDefault(playerId, DEFAULT_LANG);
+    }
+
+    /** Загрузка из NBT игрока (mixin). */
+    public static void loadSavedLanguage(UUID playerId, String lang) {
+        if (playerId == null) {
+            return;
+        }
+        if (isSupported(lang)) {
+            PLAYER_LANG.put(playerId, lang);
+        } else {
+            PLAYER_LANG.put(playerId, DEFAULT_LANG);
+        }
+    }
+
+    public static void clearPlayer(UUID playerId) {
+        if (playerId != null) {
+            PLAYER_LANG.remove(playerId);
+        }
+    }
+
+    /** @deprecated глобальный язык больше не используется — см. {@link #setLanguage(Player, String)} */
+    @Deprecated
     public static void setLanguage(String lang) {
-        if (LANGUAGES.containsKey(lang)) {
-            currentLang = lang;
+        UUID id = ACTIVE_PLAYER.get();
+        if (id != null && isSupported(lang)) {
+            PLAYER_LANG.put(id, lang);
         }
     }
 
     public static String getCurrentLang() {
-        return currentLang;
+        UUID id = ACTIVE_PLAYER.get();
+        if (id != null) {
+            return PLAYER_LANG.getOrDefault(id, DEFAULT_LANG);
+        }
+        return DEFAULT_LANG;
     }
 
     public static String tr(String key) {
-        Map<String, String> langMap = LANGUAGES.getOrDefault(currentLang, LANGUAGES.get("en"));
+        String lang = getCurrentLang();
+        Map<String, String> langMap = LANGUAGES.getOrDefault(lang, LANGUAGES.get("en"));
         return langMap.getOrDefault(key, key);
     }
 
@@ -36,11 +105,21 @@ public class LanguageManager {
         }
     }
 
+    public static String tr(PlayerEntity player, String key) {
+        bind(player);
+        return tr(key);
+    }
+
+    public static String tr(PlayerEntity player, String key, Object... args) {
+        bind(player);
+        return tr(key, args);
+    }
+
     private static void loadLanguages() {
         Map<String, String> ru = new HashMap<>();
         Map<String, String> en = new HashMap<>();
 
-        ru.put("command.help.title", "§6§lEditVillagers §7v1.0.0");
+        ru.put("command.help.title", "§6§lEditVillagers §7v1.2.0");
         ru.put("command.help.list", "§7Список доступных команд:");
         ru.put("command.help.create", "§e/ev create <имя> §7- Создать нового жителя");
         ru.put("command.help.edit", "§e/ev edit §7- Открыть основное меню");
@@ -52,10 +131,28 @@ public class LanguageManager {
         ru.put("command.error.player_only", "Только игроки могут использовать эту команду");
         ru.put("command.error.no_villager", "Житель не найден (No resident found in sight)");
         ru.put("command.error.spawn_failed", "Не удалось создать жителя");
+        ru.put("command.error.invalid_lang", "§cНеверный язык. Используй: ru, en");
 
         ru.put("command.success.name_changed", "§a[EditVillagers] §fИмя жителя изменено на: %s");
         ru.put("command.success.lang_changed", "§a[EditVillagers] §fЯзык изменен на: %s");
         ru.put("command.success.villager_created", "§aЖитель создан с именем: %s");
+
+        ru.put("carry.picked_up", "§aВы взяли жителя. Нажмите Shift чтобы отпустить.");
+        ru.put("carry.released", "§eЖитель отпущен.");
+
+        ru.put("msg.trades_restocked", "§e[EditVillagers] §aТорги обновлены!");
+        ru.put("msg.effects_saved", "§aНастройки эффектов сохранены!");
+        ru.put("msg.trades_created_locked", "§aЖитель создан (торги бесконечные + зафиксированы)");
+
+        ru.put("effects.continuous.toggle", "§eПостоянный эффект: %s");
+        ru.put("effects.continuous.lore.1", "§7Житель будет постоянно");
+        ru.put("effects.continuous.lore.2", "§7излучать выбранные частицы.");
+        ru.put("effects.continuous.particle", "§eПостоянные частицы: §b%s");
+        ru.put("effects.continuous.cycle", "§7ЛКМ - Назад, ПКМ - Вперед");
+        ru.put("effects.continuous.count", "§eКол-во частиц: §a%d");
+        ru.put("effects.continuous.count.lore.1", "§7ЛКМ: +1 | Shift+ЛКМ: +10");
+        ru.put("effects.continuous.count.lore.2", "§7ПКМ: -1 | Shift+ПКМ: -10");
+        ru.put("effects.particle.none", "Без частиц");
 
         ru.put("menu.main.title", "EditVillagers by Eeqzy");
         ru.put("menu.edit_trades.title", "Edit Villager Trades");
@@ -63,7 +160,10 @@ public class LanguageManager {
         ru.put("menu.trades.title", "Торги");
         ru.put("menu.professions.title", "Профессии");
         ru.put("menu.biomes.title", "Биомы");
-        ru.put("menu.clone.title", "§5§lКлонирование Жителя");
+        ru.put("menu.effects.title", "Эффекты");
+        ru.put("menu.clone.title", "Клонирование жителя");
+        ru.put("menu.sum.title", "Колличество торгов");
+        ru.put("menu.trade_files.title", "Файлы торгов");
 
         ru.put("menu.main.settings", "§f§lНастройки");
         ru.put("menu.main.lore.settings", "§7Основные настройки жителя");
@@ -73,12 +173,12 @@ public class LanguageManager {
         ru.put("menu.main.lore.biomes", "§7Изменить биом жителя");
         ru.put("menu.main.professions", "§b§lПрофессии");
         ru.put("menu.main.lore.professions", "§7Выбрать профессию жителя");
-        ru.put("menu.main.clone", "Клонирование Жителя");
-        ru.put("menu.main.lore.clone", "§7Создать точную копию этого жителя");
+        ru.put("menu.main.clone", "§d§lКлонирование Жителя");
+        ru.put("menu.main.lore.clone", "§7Выбрать способ клонирования");
 
-        ru.put("menu.clone.instant", "§aМоментальное копирование");
-        ru.put("menu.clone.lore.instant", "§7Создать копию рядом с собой");
-        ru.put("menu.clone.egg", "§eЯйцо призыва (Копия)");
+        ru.put("menu.clone.instant", "§aСоздать рядом");
+        ru.put("menu.clone.lore.instant", "§7Спавн копии жителя у игрока");
+        ru.put("menu.clone.egg", "§eЯйцо призыва");
         ru.put("menu.clone.lore.egg", "§7Получить яйцо с данными жителя");
 
         ru.put("msg.cloned", "§a[EditVillagers] §fЖитель склонирован со всеми данными!");
@@ -96,6 +196,8 @@ public class LanguageManager {
         ru.put("trades.lore.level.2", "§7торговли, который хотите");
         ru.put("trades.lore.level.3", "§7отредактировать.");
 
+        ru.put("trades.button.effects", "§bЭффекты жителя");
+
         ru.put("trades.button.vanilla", "§aВанильная прокачка: %s");
         ru.put("trades.lore.vanilla.1", "§7Если §aВключено§7: Житель повышает");
         ru.put("trades.lore.vanilla.2", "§7уровень и открывает новые торги,");
@@ -112,6 +214,30 @@ public class LanguageManager {
         ru.put("trades.page.prev", "§a<- Стр. %d");
         ru.put("trades.page.next", "§aСтр. %d ->");
         ru.put("trades.msg.saved", "§aТорги сохранены (Уровень: %s)");
+
+        ru.put("trades.button.files", "§eФайлы торгов");
+        ru.put("trades.lore.files", "§7Сохранить или загрузить торги из файла");
+        ru.put("trades.files.save", "§aСохранить всё");
+        ru.put("trades.files.save.lore", "§7Сохранить все торги в файл");
+        ru.put("trades.files.load", "§bЗагрузить торг");
+        ru.put("trades.files.load.lore", "§7Загрузить торги из файла");
+        ru.put("trades.files.prompt.save", "§e[EditVillagers] §fНапишите в чат §aназвание файла§f для сохранения торгов.");
+        ru.put("trades.files.prompt.load", "§e[EditVillagers] §fВыберите файл торгов и нажмите §aВыбрать файл§f.");
+        ru.put("trades.files.prompt.no_spaces", "§7Название §cбез пробелов§7 — только буквы, цифры и _");
+        ru.put("trades.files.button.cancel", "§c§l[ Отмена ]");
+        ru.put("trades.files.button.cancel.hover", "§7Нажмите, чтобы отменить");
+        ru.put("trades.files.dialog.title", "Выберите файл торгов");
+        ru.put("trades.files.dialog.select", "Выбрать файл");
+        ru.put("trades.files.dialog.filter", "Файлы торгов EditVillagers (*.evtrades)");
+        ru.put("trades.files.msg.saved", "§a[EditVillagers] §fТорги сохранены в файл: §e%s.evtrades");
+        ru.put("trades.files.msg.loaded", "§a[EditVillagers] §fТорги загружены из файла: §e%s.evtrades");
+        ru.put("trades.files.msg.cancelled", "§e[EditVillagers] §7Сохранение/загрузка отменена.");
+        ru.put("trades.files.msg.nothing_to_cancel", "§e[EditVillagers] §7Нечего отменять.");
+        ru.put("trades.files.msg.invalid_name", "§c[EditVillagers] §fНедопустимое название файла.");
+        ru.put("trades.files.msg.no_spaces", "§c[EditVillagers] §fНазвание не должно содержать пробелы.");
+        ru.put("trades.files.msg.not_found", "§c[EditVillagers] §fФайл не найден в папке trades.");
+        ru.put("trades.files.msg.error", "§c[EditVillagers] §fНе удалось выполнить операцию с файлом.");
+        ru.put("trades.files.msg.no_villager", "§c[EditVillagers] §fЖитель не найден.");
 
         ru.put("sum.limit.infinite", "§aЛимит: Бесконечно");
         ru.put("sum.limit.value", "§eЛимит: %d");
@@ -165,6 +291,11 @@ public class LanguageManager {
 
         ru.put("settings.button.noxp", "§fОпыт: %s");
         ru.put("settings.lore.noxp", "§7Отключить опыт при торговли с жителем");
+
+        ru.put("settings.button.baby", "§fРазмер: %s");
+        ru.put("settings.lore.baby", "§7Изменить размер жителя");
+        ru.put("settings.status.baby", "§eМаленький");
+        ru.put("settings.status.adult", "§aБольшой");
 
         ru.put("settings.button.sum", "§eНастроить количество торгов");
 
@@ -225,7 +356,7 @@ public class LanguageManager {
         ru.put("dir.east", "Восток");
         ru.put("dir.southeast", "Юго-Восток");
 
-        en.put("command.help.title", "§6§lEditVillagers §7v1.0.0");
+        en.put("command.help.title", "§6§lEditVillagers §7v1.2.0");
         en.put("command.help.list", "§7Available commands:");
         en.put("command.help.create", "§e/ev create <name> §7- Create a new villager");
         en.put("command.help.edit", "§e/ev edit §7- Open main menu");
@@ -237,10 +368,28 @@ public class LanguageManager {
         en.put("command.error.player_only", "Only players can use this command");
         en.put("command.error.no_villager", "No villager found in sight");
         en.put("command.error.spawn_failed", "Failed to spawn villager");
+        en.put("command.error.invalid_lang", "§cInvalid language. Use: ru, en");
 
         en.put("command.success.name_changed", "§a[EditVillagers] §fName changed to: %s");
         en.put("command.success.lang_changed", "§a[EditVillagers] §fLanguage changed to: %s");
         en.put("command.success.villager_created", "§aVillager created with name: %s");
+
+        en.put("carry.picked_up", "§aYou picked up the villager. Press Shift to release.");
+        en.put("carry.released", "§eVillager released.");
+
+        en.put("msg.trades_restocked", "§e[EditVillagers] §aTrades restocked!");
+        en.put("msg.effects_saved", "§aEffect settings saved!");
+        en.put("msg.trades_created_locked", "§aVillager created (infinite + locked trades)");
+
+        en.put("effects.continuous.toggle", "§eContinuous effect: %s");
+        en.put("effects.continuous.lore.1", "§7The villager will continuously");
+        en.put("effects.continuous.lore.2", "§7emit the selected particles.");
+        en.put("effects.continuous.particle", "§eContinuous particles: §b%s");
+        en.put("effects.continuous.cycle", "§7LMB - Previous, RMB - Next");
+        en.put("effects.continuous.count", "§eParticle count: §a%d");
+        en.put("effects.continuous.count.lore.1", "§7LMB: +1 | Shift+LMB: +10");
+        en.put("effects.continuous.count.lore.2", "§7RMB: -1 | Shift+RMB: -10");
+        en.put("effects.particle.none", "None");
 
         en.put("menu.main.title", "EditVillagers by Eeqzy");
         en.put("menu.edit_trades.title", "Edit Villager Trades");
@@ -248,7 +397,10 @@ public class LanguageManager {
         en.put("menu.trades.title", "Trades");
         en.put("menu.professions.title", "Professions");
         en.put("menu.biomes.title", "Biomes");
-        en.put("menu.clone.title", "§5§lClone Villager");
+        en.put("menu.effects.title", "Effects");
+        en.put("menu.clone.title", "Clone Villager");
+        en.put("menu.sum.title", "Number of Trades");
+        en.put("menu.trade_files.title", "Trade Files");
 
         en.put("menu.main.settings", "§fSettings");
         en.put("menu.main.lore.settings", "§7Main villager settings");
@@ -258,12 +410,12 @@ public class LanguageManager {
         en.put("menu.main.lore.biomes", "§7Change villager biome");
         en.put("menu.main.professions", "§b§lProfessions");
         en.put("menu.main.lore.professions", "§7Select villager profession");
-        en.put("menu.main.clone", "Clone Villager");
-        en.put("menu.main.lore.clone", "§7Create an exact copy");
+        en.put("menu.main.clone", "§d§lClone Villager");
+        en.put("menu.main.lore.clone", "§7Choose how to clone");
 
-        en.put("menu.clone.instant", "§aInstant Clone");
-        en.put("menu.clone.lore.instant", "§7Spawn a copy nearby");
-        en.put("menu.clone.egg", "§eSpawn Egg (Copy)");
+        en.put("menu.clone.instant", "§aSpawn Nearby");
+        en.put("menu.clone.lore.instant", "§7Spawn a copy at the player");
+        en.put("menu.clone.egg", "§eSpawn Egg");
         en.put("menu.clone.lore.egg", "§7Get spawn egg with villager data");
 
         en.put("msg.cloned", "§a[EditVillagers] §fVillager cloned successfully!");
@@ -281,6 +433,8 @@ public class LanguageManager {
         en.put("trades.lore.level.2", "§7level you want to edit.");
         en.put("trades.lore.level.3", "");
 
+        en.put("trades.button.effects", "§bVillager Effects");
+
         en.put("trades.button.vanilla", "§aVanilla Leveling: %s");
         en.put("trades.lore.vanilla.1", "§7If §aON§7: Villager levels up");
         en.put("trades.lore.vanilla.2", "§7and unlocks new trades normally.");
@@ -297,6 +451,30 @@ public class LanguageManager {
         en.put("trades.page.prev", "§a<- Page %d");
         en.put("trades.page.next", "§aPage %d ->");
         en.put("trades.msg.saved", "§aTrades saved (Level: %s)");
+
+        en.put("trades.button.files", "§eTrade Files");
+        en.put("trades.lore.files", "§7Save or load trades from a file");
+        en.put("trades.files.save", "§aSave All");
+        en.put("trades.files.save.lore", "§7Save all trades to a file");
+        en.put("trades.files.load", "§bLoad Trade");
+        en.put("trades.files.load.lore", "§7Load trades from a file");
+        en.put("trades.files.prompt.save", "§e[EditVillagers] §fType a §afile name§f in chat to save trades.");
+        en.put("trades.files.prompt.load", "§e[EditVillagers] §fSelect a trade file and press §aSelect file§f.");
+        en.put("trades.files.prompt.no_spaces", "§7Name must have §cno spaces§7 — letters, numbers and _ only");
+        en.put("trades.files.button.cancel", "§c§l[ Cancel ]");
+        en.put("trades.files.button.cancel.hover", "§7Click to cancel");
+        en.put("trades.files.dialog.title", "Select trade file");
+        en.put("trades.files.dialog.select", "Select file");
+        en.put("trades.files.dialog.filter", "EditVillagers trade files (*.evtrades)");
+        en.put("trades.files.msg.saved", "§a[EditVillagers] §fTrades saved to: §e%s.evtrades");
+        en.put("trades.files.msg.loaded", "§a[EditVillagers] §fTrades loaded from: §e%s.evtrades");
+        en.put("trades.files.msg.cancelled", "§e[EditVillagers] §7Save/load cancelled.");
+        en.put("trades.files.msg.nothing_to_cancel", "§e[EditVillagers] §7Nothing to cancel.");
+        en.put("trades.files.msg.invalid_name", "§c[EditVillagers] §fInvalid file name.");
+        en.put("trades.files.msg.no_spaces", "§c[EditVillagers] §fFile name cannot contain spaces.");
+        en.put("trades.files.msg.not_found", "§c[EditVillagers] §fFile not found in trades folder.");
+        en.put("trades.files.msg.error", "§c[EditVillagers] §fCould not read or write trade file.");
+        en.put("trades.files.msg.no_villager", "§c[EditVillagers] §fVillager not found.");
 
         en.put("sum.limit.infinite", "§aLimit: Infinite");
         en.put("sum.limit.value", "§eLimit: %d");
@@ -350,6 +528,11 @@ public class LanguageManager {
 
         en.put("settings.button.noxp", "§fXP Drop: %s");
         en.put("settings.lore.noxp", "§7Disable experience when trading with a villager");
+
+        en.put("settings.button.baby", "§fSize: %s");
+        en.put("settings.lore.baby", "§7Change villager size");
+        en.put("settings.status.baby", "§eBaby");
+        en.put("settings.status.adult", "§aAdult");
 
         en.put("settings.button.sum", "§eTrade Amount Settings");
 

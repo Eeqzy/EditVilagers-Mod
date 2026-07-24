@@ -1,8 +1,8 @@
 package lv.editvillager;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
@@ -37,43 +37,41 @@ public class VillagerCarryHandler {
         }
     }
 
-    public static void registerTick() {
-        ServerTickEvents.END_SERVER_TICK.register(server -> {
-            for (UUID playerId : new HashMap<>(carryingMap).keySet()) {
-                ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
-                if (player == null) {
-                    carryingMap.remove(playerId);
-                    continue;
-                }
-
-                UUID villagerId = carryingMap.get(playerId);
-                Entity entity = ((ServerWorld) player.getEntityWorld()).getEntity(villagerId);
-
-                if (entity == null || !entity.isAlive() || !(entity instanceof VillagerEntity villager)) {
-                    carryingMap.remove(playerId);
-                    continue;
-                }
-
-                if (player.isSneaking()) {
-                    stopCarrying(player);
-                    continue;
-                }
-
-                Vec3d look = player.getRotationVec(1.0f);
-                Vec3d eyePos = player.getEyePos();
-
-                double dist = 2.5;
-                Vec3d target = eyePos.add(look.multiply(dist));
-
-                target = target.subtract(0, 1.0, 0);
-
-                villager.refreshPositionAndAngles(target.x, target.y, target.z, player.getYaw() + 180.0f, 0.0f);
-                villager.setHeadYaw(player.getYaw() + 180.0f);
-                villager.setBodyYaw(player.getYaw() + 180.0f);
-
-                villager.setVelocity(Vec3d.ZERO);
-                villager.fallDistance = 0;
+    public static void onServerTick(MinecraftServer server) {
+        for (UUID playerId : new HashMap<>(carryingMap).keySet()) {
+            ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
+            if (player == null) {
+                carryingMap.remove(playerId);
+                continue;
             }
-        });
+
+            UUID villagerId = carryingMap.get(playerId);
+            Entity entity = ((ServerWorld) player.getEntityWorld()).getEntity(villagerId);
+
+            if (entity == null || !entity.isAlive() || !(entity instanceof VillagerEntity villager)) {
+                carryingMap.remove(playerId);
+                continue;
+            }
+
+            if (player.isSneaking()) {
+                stopCarrying(player);
+                continue;
+            }
+
+            Vec3d look = player.getRotationVec(1.0f);
+            Vec3d eyePos = player.getEyePos();
+
+            double dist = 2.5;
+            Vec3d target = eyePos.add(look.multiply(dist));
+
+            target = target.subtract(0, 1.0, 0);
+
+            villager.refreshPositionAndAngles(target.x, target.y, target.z, player.getYaw() + 180.0f, 0.0f);
+            villager.setHeadYaw(player.getYaw() + 180.0f);
+            villager.setBodyYaw(player.getYaw() + 180.0f);
+
+            villager.setVelocity(Vec3d.ZERO);
+            villager.fallDistance = 0;
+        }
     }
 }
