@@ -23,7 +23,7 @@
 
 This is an advanced mod for creating a merchant directly through the GUI menu. It allows you to edit your villager, applying any settings you want, making creating a merchant incredibly convenient and easy!
 
-![ㅤ](https://cdn.modrinth.com/data/cached_images/797134f1f5172db7480f1fc0f57a17299aeed439_0.webp)
+![ㅤ](https://cdn.modrinth.com/data/cached_images/4f754c6d0acbdc7058f49ae90293e2e5a86042cc.png)
 
 ##  Commands
 - **/ev create** _<name>_ - Create a new villager
